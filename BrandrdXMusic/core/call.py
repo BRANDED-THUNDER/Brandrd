@@ -8,9 +8,7 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup
 from ntgcalls import TelegramServerError
 from pytgcalls import PyTgCalls
-
 from pytgcalls import filters as pytgcalls_filters
-from pytgcalls.types import GroupCallParticipant, UpdatedGroupCallParticipant
 
 from pytgcalls.exceptions import (
     AlreadyJoinedError,
