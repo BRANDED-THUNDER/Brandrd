@@ -9,13 +9,8 @@ from pyrogram.types import InlineKeyboardMarkup
 from ntgcalls import TelegramServerError
 from pytgcalls import PyTgCalls
 
-try:
-    from pytgcalls import filters as pytgcalls_filters
-
-    _PYTGCALLS_PARTICIPANT_EVENTS = True
-except ImportError:
-    pytgcalls_filters = None
-    _PYTGCALLS_PARTICIPANT_EVENTS = False
+from pytgcalls import filters as pytgcalls_filters
+from pytgcalls.types import GroupCallParticipant, UpdatedGroupCallParticipant
 
 from pytgcalls.exceptions import (
     AlreadyJoinedError,
