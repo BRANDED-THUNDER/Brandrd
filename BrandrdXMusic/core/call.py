@@ -3,10 +3,17 @@ import os
 from datetime import datetime, timedelta
 from typing import Union
 
-from pyrogram import Client
+from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup
 from ntgcalls import TelegramServerError
 from pytgcalls import PyTgCalls
+
+try:
+    from pytgcalls import filters as pytgcalls_filters
+    _PYTGCALLS_PARTICIPANT_EVENTS = True
+except ImportError:
+    pytgcalls_filters = None
+    _PYTGCALLS_PARTICIPANT_EVENTS = False
 from pytgcalls.exceptions import (
     AlreadyJoinedError,
     NoActiveGroupCall,
@@ -36,7 +43,7 @@ from BrandrdXMusic.utils.database import (
 )
 from BrandrdXMusic.utils.exceptions import AssistantErr
 from BrandrdXMusic.utils.formatters import check_duration, seconds_to_min, speed_converter
-from BrandrdXMusic.utils.inline.play import stream_markup
+from BrandrdXMusic.utils.inline.play import stream_markup, stream_markup2
 from BrandrdXMusic.utils.stream.autoclear import auto_clean
 from BrandrdXMusic.utils.thumbnails import get_thumb
 from strings import get_string
@@ -54,6 +61,11 @@ async def _clear_(chat_id):
 
 class Call(PyTgCalls):
     def __init__(self):
+        # VC monitor state. This is intentionally kept separate from
+        # music playback state, so enabling/disabling monitoring never
+        # starts or stops a group call.
+        self.vc_monitoring = set()
+        self._vc_event_cache = {}
         self.userbot1 = Client(
             name="BrandrdXMusic1",
             api_id=config.API_ID,
@@ -104,6 +116,19 @@ class Call(PyTgCalls):
             self.userbot5,
             cache_duration=100,
         )
+
+    def enable_vc_monitoring(self, chat_id: int):
+        self.vc_monitoring.add(int(chat_id))
+
+    def disable_vc_monitoring(self, chat_id: int):
+        self.vc_monitoring.discard(int(chat_id))
+        # Remove old duplicate-suppression entries for this chat.
+        for key in list(self._vc_event_cache):
+            if key[0] == int(chat_id):
+                self._vc_event_cache.pop(key, None)
+
+    def is_vc_monitoring(self, chat_id: int) -> bool:
+        return int(chat_id) in self.vc_monitoring
 
     async def pause_stream(self, chat_id: int):
         assistant = await group_assistant(self, chat_id)
@@ -630,6 +655,175 @@ class Call(PyTgCalls):
             if not isinstance(update, StreamAudioEnded):
                 return
             await self.change_stream(client, update.chat_id)
+
+        # ------------------------------------------------------------
+        # Voice-chat participant monitor
+        #
+        # This uses PyTgCalls' generic participant-update event instead
+        # of creating another PyTgCalls instance. That is important for
+        # this bot because it already owns five assistant instances.
+        #
+        # Monitoring is enabled with:
+        #   /checkvc on
+        # and disabled with:
+        #   /checkvc off
+        #
+        # The monitor does NOT join or leave a voice chat.
+        # ------------------------------------------------------------
+        if _PYTGCALLS_PARTICIPANT_EVENTS:
+            participant_filter = pytgcalls_filters.call_participant()
+
+            async def vc_participant_handler(client, update):
+                try:
+                    chat_id = int(update.chat_id)
+
+                    if not self.is_vc_monitoring(chat_id):
+                        return
+
+                    participant = getattr(update, "participant", None)
+                    if participant is None:
+                        return
+
+                    user_id = getattr(participant, "user_id", None)
+                    if user_id is None:
+                        return
+
+                    action = getattr(update, "action", None)
+                    action_name = getattr(action, "name", str(action)).upper()
+
+                    # We only want actual join/leave/kick events.
+                    # Other participant updates (mute, volume, etc.)
+                    # must not generate messages.
+                    if not any(
+                        event in action_name
+                        for event in ("JOIN", "LEFT", "KICK")
+                    ):
+                        return
+
+                    # Prevent the same event being delivered by more
+                    # than one assistant from producing duplicate messages.
+                    import time
+
+                    cache_key = (chat_id, int(user_id), action_name)
+                    now = time.monotonic()
+                    previous = self._vc_event_cache.get(cache_key)
+
+                    if previous is not None and now - previous < 3:
+                        return
+
+                    self._vc_event_cache[cache_key] = now
+
+                    # Keep the cache small.
+                    if len(self._vc_event_cache) > 500:
+                        cutoff = now - 10
+                        self._vc_event_cache = {
+                            key: value
+                            for key, value in self._vc_event_cache.items()
+                            if value >= cutoff
+                        }
+
+                    mention = f"[User](tg://user?id={int(user_id)})"
+
+                    if "KICK" in action_name:
+                        text = (
+                            "🚫 **Voice Chat Update**\n\n"
+                            f"{mention} was removed from the Voice Chat.\n"
+                            f"🆔 **User ID:** `{int(user_id)}`"
+                        )
+                    elif "LEFT" in action_name:
+                        text = (
+                            "👋 **Voice Chat Update**\n\n"
+                            f"{mention} left the Voice Chat.\n"
+                            f"🆔 **User ID:** `{int(user_id)}`"
+                        )
+                    else:
+                        text = (
+                            "🎧 **Voice Chat Update**\n\n"
+                            f"{mention} joined the Voice Chat.\n"
+                            f"🆔 **User ID:** `{int(user_id)}`"
+                        )
+
+                    await app.send_message(
+                        chat_id,
+                        text,
+                        disable_web_page_preview=True,
+                    )
+
+                except Exception as e:
+                    try:
+                        LOGGER(__name__).warning(
+                            "VC participant monitor error: %s",
+                            e,
+                        )
+                    except Exception:
+                        pass
+
+            # Register the same monitor on all existing assistants.
+            for assistant in (
+                self.one,
+                self.two,
+                self.three,
+                self.four,
+                self.five,
+            ):
+                try:
+                    assistant.on_update(participant_filter)(
+                        vc_participant_handler
+                    )
+                except (AttributeError, TypeError):
+                    # Allows the music bot to continue working if an older
+                    # PyTgCalls build does not provide on_update().
+                    LOGGER(__name__).warning(
+                        "Participant-update API is unavailable for %s. "
+                        "VC monitoring will be disabled for that assistant.",
+                        type(assistant).__name__,
+                    )
+
+        # Commands are registered on the existing bot client.
+        # They only toggle monitoring; they never touch the voice call.
+        @app.on_message(filters.command("checkvc") & filters.group)
+        async def check_vc_command(_, message):
+            try:
+                command = message.command
+
+                if len(command) != 2 or command[1].lower() not in (
+                    "on",
+                    "off",
+                ):
+                    await message.reply_text(
+                        "❌ **Usage:**\n"
+                        "`/checkvc on` - Start VC monitoring\n"
+                        "`/checkvc off` - Stop VC monitoring"
+                    )
+                    return
+
+                mode = command[1].lower()
+                chat_id = int(message.chat.id)
+
+                if mode == "on":
+                    self.enable_vc_monitoring(chat_id)
+                    await message.reply_text(
+                        "✅ **VC monitoring enabled.**\n\n"
+                        "I will notify this group when someone joins, "
+                        "leaves, or is removed from the Voice Chat."
+                    )
+                else:
+                    self.disable_vc_monitoring(chat_id)
+                    await message.reply_text(
+                        "🛑 **VC monitoring disabled.**"
+                    )
+
+            except Exception as e:
+                try:
+                    LOGGER(__name__).error(
+                        "checkvc command error: %s",
+                        e,
+                    )
+                except Exception:
+                    pass
+                await message.reply_text(
+                    "❌ Failed to update VC monitoring."
+                )
 
 
 Hotty = Call()
