@@ -6,127 +6,221 @@ from BrandrdXMusic.core.mongo import mongodb
 
 
 # ============================================================
-# MongoDB
+# MongoDB COLLECTION
+# ============================================================
+
+VC_MONITOR_COLLECTION = mongodb.vc_monitor
+
+
+# ============================================================
+# CHECK VC MONITOR STATUS
 # ============================================================
 
 async def vc_monitor_enabled(chat_id: int) -> bool:
+    """
+    Return True if VC monitor is enabled for this chat.
+    """
+
     try:
-        data = await mongodb.vc_monitor.find_one(
-            {"chat_id": int(chat_id)}
+        chat_id = int(chat_id)
+
+        data = await VC_MONITOR_COLLECTION.find_one(
+            {"chat_id": chat_id}
         )
-        return bool(data and data.get("enabled", False))
+
+        if not data:
+            return False
+
+        return bool(data.get("enabled", False))
+
     except Exception:
         return False
 
 
-async def set_vc_monitor(chat_id: int, enabled: bool):
-    await mongodb.vc_monitor.update_one(
-        {"chat_id": int(chat_id)},
+# ============================================================
+# SET VC MONITOR STATUS
+# ============================================================
+
+async def set_vc_monitor(chat_id: int, enabled: bool) -> bool:
+    """
+    Enable or disable VC monitor for a chat.
+    """
+
+    chat_id = int(chat_id)
+    enabled = bool(enabled)
+
+    await VC_MONITOR_COLLECTION.update_one(
+        {"chat_id": chat_id},
         {
             "$set": {
-                "chat_id": int(chat_id),
-                "enabled": bool(enabled),
+                "chat_id": chat_id,
+                "enabled": enabled,
             }
         },
         upsert=True,
     )
+
+    return True
 
 
 # ============================================================
 # /checkvc
 # ============================================================
 
-@app.on_message(filters.command("checkvc") & filters.group)
-async def check_vc(_, message: Message):
+@app.on_message(
+    filters.command("checkvc") & filters.group
+)
+async def check_vc(client, message: Message):
 
     chat_id = int(message.chat.id)
-    command = message.command
 
-    # --------------------------------------------------------
-    # /checkvc
-    # --------------------------------------------------------
+    try:
+        command = message.command or []
 
-    if len(command) == 1:
+        # ====================================================
+        # /checkvc
+        # ====================================================
 
-        enabled = await vc_monitor_enabled(chat_id)
+        if len(command) == 1:
 
-        status = "🟢 ENABLED" if enabled else "🔴 DISABLED"
+            enabled = await vc_monitor_enabled(chat_id)
 
-        await message.reply_text(
-            "**🎧 VC Monitor**\n\n"
-            f"**Status:** {status}\n\n"
-            "**Commands:**\n"
-            "• `/checkvc on` — Enable\n"
-            "• `/checkvc off` — Disable\n"
-            "• `/checkvc` — Check status"
-        )
+            if enabled:
+                status = "🟢 ENABLED"
+            else:
+                status = "🔴 DISABLED"
 
-        return
+            await message.reply_text(
+                "**🎧 VC Monitor**\n\n"
+                f"**Status:** {status}\n\n"
+                "**Commands:**\n"
+                "• `/checkvc on` — Enable\n"
+                "• `/checkvc off` — Disable\n"
+                "• `/checkvc` — Check status"
+            )
 
-    # --------------------------------------------------------
-    # Invalid command
-    # --------------------------------------------------------
+            return
 
-    if (
-        len(command) != 2
-        or command[1].lower() not in ("on", "off")
-    ):
-        await message.reply_text(
-            "**❌ Invalid command**\n\n"
-            "Use:\n"
-            "`/checkvc on`\n"
-            "`/checkvc off`\n"
-            "`/checkvc`"
-        )
-        return
+        # ====================================================
+        # INVALID COMMAND
+        # ====================================================
 
-    # --------------------------------------------------------
-    # ON / OFF
-    # --------------------------------------------------------
+        if (
+            len(command) != 2
+            or command[1].lower() not in ("on", "off")
+        ):
 
-    enabled = command[1].lower() == "on"
+            await message.reply_text(
+                "**❌ Invalid command**\n\n"
+                "Use:\n"
+                "`/checkvc on`\n"
+                "`/checkvc off`\n"
+                "`/checkvc`"
+            )
 
-    current = await vc_monitor_enabled(chat_id)
+            return
 
-    if current == enabled:
+        # ====================================================
+        # ON / OFF
+        # ====================================================
+
+        action = command[1].lower()
+        enabled = action == "on"
+
+        # Check current status
+        current = await vc_monitor_enabled(chat_id)
+
+        # ====================================================
+        # ALREADY ENABLED / DISABLED
+        # ====================================================
+
+        if current == enabled:
+
+            if enabled:
+                await message.reply_text(
+                    "ℹ️ **VC Monitor is already enabled.**\n\n"
+                    "Users joining, leaving or being removed "
+                    "from the Voice Chat will be monitored."
+                )
+            else:
+                await message.reply_text(
+                    "ℹ️ **VC Monitor is already disabled.**"
+                )
+
+            return
+
+        # ====================================================
+        # SAVE TO MONGODB
+        # ====================================================
+
+        try:
+
+            await set_vc_monitor(
+                chat_id,
+                enabled
+            )
+
+        except Exception as e:
+
+            await message.reply_text(
+                "❌ **MongoDB Error**\n\n"
+                f"`{type(e).__name__}: {str(e)}`"
+            )
+
+            return
+
+        # ====================================================
+        # SYNC WITH CALL OBJECT
+        #
+        # This keeps the in-memory monitor state synchronized
+        # immediately after /checkvc on/off.
+        # ====================================================
+
+        try:
+
+            from BrandrdXMusic.core.call import Hotty
+
+            if enabled:
+                Hotty.enable_vc_monitoring(chat_id)
+            else:
+                Hotty.disable_vc_monitoring(chat_id)
+
+        except Exception:
+            # MongoDB is still the permanent source of truth.
+            pass
+
+        # ====================================================
+        # ENABLED RESPONSE
+        # ====================================================
 
         if enabled:
+
             await message.reply_text(
-                "ℹ️ **VC Monitor is already enabled.**"
+                "✅ **VC Monitor Enabled**\n\n"
+                "🎤 **Joined:** notification will be sent\n"
+                "👋 **Left:** notification will be sent\n"
+                "🚫 **Removed:** notification will be sent\n\n"
+                "💾 **Status saved to MongoDB.**"
             )
+
+        # ====================================================
+        # DISABLED RESPONSE
+        # ====================================================
+
         else:
+
             await message.reply_text(
-                "ℹ️ **VC Monitor is already disabled.**"
+                "🛑 **VC Monitor Disabled**\n\n"
+                "No VC participant notifications will be sent.\n\n"
+                "💾 **Status saved to MongoDB.**"
             )
 
-        return
-
-    # Save to MongoDB
-    try:
-        await set_vc_monitor(chat_id, enabled)
     except Exception as e:
-        await message.reply_text(
-            "❌ **MongoDB Error**\n\n"
-            f"`{type(e).__name__}: {e}`"
-        )
-        return
 
-    # --------------------------------------------------------
-    # Response
-    # --------------------------------------------------------
-
-    if enabled:
-
-        await message.reply_text(
-            "✅ **VC Monitor Enabled**\n\n"
-            "🎤 A user joins the voice chat → notification\n"
-            "👋 A user leaves the voice chat → notification\n"
-            "🚫 A user is removed → notification"
-        )
-
-    else:
-
-        await message.reply_text(
-            "🛑 **VC Monitor Disabled**\n\n"
-            "No VC participant notifications will be sent."
-        )
+        try:
+            await message.reply_text(
+                "❌ **VC Monitor Error**\n\n"
+                f"`{type(e).__name__}: {str(e)}`"
+            )
+        except Exception:
+            pass
