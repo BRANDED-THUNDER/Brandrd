@@ -65,12 +65,3 @@ async def cookies_logs(client, message, _):
         "Cᴏᴏᴋɪᴇs Fɪʟᴇ Cʜᴏᴏsɪɴɢ Lᴏɢs..."
         "</blockquote></b>",
     )
-
-### What was fixed
-
-* `logger()` → `logger_settings()` so it isn't overwritten.
-* `cookies` handler → `cookies_logs()`.
-* Added `parse_mode=enums.ParseMode.HTML`.
-* Kept your `<b><blockquote>...</blockquote></b>` formatting.
-* Kept `log_1`, `log_2`, and `log_3` language variables unchanged.
-* Kept `/cookies` and `SUDOERS` unchanged.
