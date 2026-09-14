@@ -21,7 +21,6 @@ async def bots(client, message):
         if not botList:
             await message.reply_text(
                 "<b><blockquote>🤖 Is group mein koi bot nahi hai.</blockquote></b>",
-                parse_mode=enums.ParseMode.HTML
             )
             return
 
