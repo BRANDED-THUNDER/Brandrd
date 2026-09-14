@@ -40,9 +40,27 @@ async def brah2(_, msg):
     group_name = msg.chat.title or "Private Chat"
     chat_id = msg.chat.id
 
+    # Get start time
+    start_time = vc_start_times.pop(chat_id, None)
+
+    if start_time:
+        total_seconds = int(time.time() - start_time)
+
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+
+        if hours:
+            duration_text = f"{hours}h {minutes}m {seconds}s"
+        elif minutes:
+            duration_text = f"{minutes}m {seconds}s"
+        else:
+            duration_text = f"{seconds}s"
+    else:
+        duration_text = "Unknown"
+
     await msg.reply(
         f"<b><blockquote>"
-        f" ᴠɪᴅᴇᴏ ᴄʜᴀᴛ ᴇɴᴅᴇᴅ \n\n"
+        f"ᴠɪᴅᴇᴏ ᴄʜᴀᴛ ᴇɴᴅᴇᴅ\n\n"
         f"──────────\n"
         f"๏ ɢʀᴏᴜᴘ : {group_name}\n"
         f"๏ ᴄʜᴀᴛ ɪᴅ : <code>{chat_id}</code>\n"
