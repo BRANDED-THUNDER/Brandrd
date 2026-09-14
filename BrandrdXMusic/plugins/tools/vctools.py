@@ -16,15 +16,24 @@ from telethon.tl.functions.phone import (
 )
 
 
+import time
+
+# VC start time storage
+vc_start_times = {}
+
+
 # vc on
 @app.on_message(filters.video_chat_started)
 async def brah(_, msg):
     group_name = msg.chat.title or "Private Chat"
     chat_id = msg.chat.id
 
+    # Save VC start time
+    vc_start_times[chat_id] = time.time()
+
     await msg.reply(
         f"<b><blockquote>"
-        f" ᴠɪᴅᴇᴏ ᴄʜᴀᴛ sᴛᴀʀᴛᴇᴅ \n\n"
+        f"ᴠɪᴅᴇᴏ ᴄʜᴀᴛ sᴛᴀʀᴛᴇᴅ\n\n"
         f"──────────\n"
         f"๏ sᴛᴀʀᴛᴇᴅ ʙʏ : {group_name}\n"
         f"๏ ᴄʜᴀᴛ ɪᴅ : <code>{chat_id}</code>\n"
@@ -40,10 +49,10 @@ async def brah2(_, msg):
     group_name = msg.chat.title or "Private Chat"
     chat_id = msg.chat.id
 
-    # Get start time
+    # Get VC start time
     start_time = vc_start_times.pop(chat_id, None)
 
-    if start_time:
+    if start_time is not None:
         total_seconds = int(time.time() - start_time)
 
         hours, remainder = divmod(total_seconds, 3600)
@@ -65,7 +74,7 @@ async def brah2(_, msg):
         f"๏ ɢʀᴏᴜᴘ : {group_name}\n"
         f"๏ ᴄʜᴀᴛ ɪᴅ : <code>{chat_id}</code>\n"
         f"๏ ᴅᴜʀᴀᴛɪᴏɴ : {duration_text}\n"
-        f"──────────\n"
+        f"──────────"
         f"</blockquote></b>"
     )
 # ================================
