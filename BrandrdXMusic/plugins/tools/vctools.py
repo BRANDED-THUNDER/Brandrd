@@ -81,20 +81,35 @@ async def brah2(_, msg):
 @app.on_message(filters.video_chat_members_invited)
 async def brah3(client, message: Message):
     try:
-        text = (
-            f"➻ {message.from_user.mention}\n\n"
-            f"**๏ ɪɴᴠɪᴛɪɴɢ:**\n\n"
-        )
+        invited_users = []
 
         for user in message.video_chat_members_invited.users:
             try:
-                text += f"➻ [{user.first_name}](tg://user?id={user.id})\n"
+                invited_users.append(
+                    f'<a href="tg://user?id={user.id}">{user.first_name}</a>'
+                )
             except Exception:
                 pass
 
+        users_text = " • ".join(invited_users)
+
+        group_name = message.chat.title or "Private Chat"
+        chat_id = message.chat.id
+
         add_link = f"https://t.me/{client.me.username}?startgroup=true"
 
-        reply_text = f"{text}\n🤭🤭"
+        reply_text = (
+            f"<b><blockquote>"
+            f"➻ {message.from_user.mention}\n\n"
+            f"๏ ɪɴᴠɪᴛɪɴɢ:\n\n"
+            f"{users_text}\n\n"
+            f"──────────\n"
+            f"๏ ɢʀᴏᴜᴘ : {group_name}\n"
+            f"๏ ᴄʜᴀᴛ ɪᴅ : <code>{chat_id}</code>\n"
+            f"──────────\n"
+            f"🤭🤭"
+            f"</blockquote></b>"
+        )
 
         await message.reply(
             reply_text,
@@ -107,7 +122,7 @@ async def brah3(client, message: Message):
                         )
                     ]
                 ]
-            ),
+            )
         )
 
     except Exception as e:
