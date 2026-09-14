@@ -155,9 +155,6 @@ VC_TAG = [ "**𝐎𝚈𝙴 𝐕𝙲 𝐀𝙰𝙾 𝐍𝙰 𝐏𝙻𝚂🥲**",
 
 
 @app.on_message(filters.command(["tagall"], prefixes=["/", "@", ".", "#"]))
-from pyrogram import enums
-
-
 async def mentionall(client, message):
     chat_id = message.chat.id
 
