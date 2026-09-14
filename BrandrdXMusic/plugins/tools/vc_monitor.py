@@ -1,4 +1,3 @@
-```python
 from pyrogram import filters, enums
 from pyrogram.types import Message
 from pyrogram.errors import UserNotParticipant
