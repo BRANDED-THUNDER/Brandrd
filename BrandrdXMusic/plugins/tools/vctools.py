@@ -21,7 +21,6 @@ from telethon.tl.functions.phone import (
 async def brah(_, msg):
     await msg.reply(
         "<b><blockquote>😍 ᴠɪᴅᴇᴏ ᴄʜᴀᴛ sᴛᴀʀᴛᴇᴅ 🥳</blockquote></b>",
-        parse_mode="html"
     )
 
 
@@ -30,7 +29,6 @@ async def brah(_, msg):
 async def brah2(_, msg):
     await msg.reply(
         "<b><blockquote>😕 ᴠɪᴅᴇᴏ ᴄʜᴀᴛ ᴇɴᴅᴇᴅ 💔</blockquote></b>",
-        parse_mode="html"
     )
 # ================================
 # Invite Members on VC
