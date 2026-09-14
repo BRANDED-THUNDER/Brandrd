@@ -24,7 +24,7 @@ async def logger(client, message, _):
         await message.reply_text(
             f"<b><blockquote>"
             f"🟢 {_[\"log_2\"]}"
-            f"</blockquote></b>"
+            f"</blockquote></b>",
         )
 
     elif state == "disable":
@@ -54,6 +54,4 @@ async def logger(client, message, _):
         "</blockquote></b>",
     )
 
-
 **Note:** Tumhare code mein dono functions ka naam `logger` hai. Python mein second `logger()` pehle wale ko overwrite karega. Agar dono same file mein hain, pehle function ka naam alag rakhna hoga.
-
