@@ -2,6 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 from BrandrdXMusic import app
 from pyrogram import *
+import time
 from pyrogram.types import *
 from config import OWNER_ID
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -15,12 +16,8 @@ from telethon.tl.functions.phone import (
     InviteToGroupCallRequest,
 )
 
-
-import time
-
 # VC start time storage
 vc_start_times = {}
-
 
 # vc on
 @app.on_message(filters.video_chat_started)
