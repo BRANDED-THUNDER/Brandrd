@@ -100,14 +100,10 @@ async def brah3(client, message: Message):
 
         reply_text = (
             f"<b><blockquote>"
-            f"➻ {message.from_user.mention}\n\n"
-            f"๏ ɪɴᴠɪᴛɪɴɢ:\n\n"
+            f"🔥 {message.from_user.mention}\n\n"
+            f" ɪɴᴠɪᴛɪɴɢ:\n\n"
             f"{users_text}\n\n"
-            f"──────────\n"
-            f"๏ ɢʀᴏᴜᴘ : {group_name}\n"
-            f"๏ ᴄʜᴀᴛ ɪᴅ : <code>{chat_id}</code>\n"
-            f"──────────\n"
-            f"🤭🤭"
+            f" ᴛᴏ ᴛʜᴇ ᴠɪᴅᴇᴏ ᴄʜᴀᴛ\n"
             f"</blockquote></b>"
         )
 
