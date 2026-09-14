@@ -14,9 +14,6 @@ SPAM_CHATS = {}
 @app.on_message(
     filters.command(["utag", "uall"], prefixes=["/", "@", ".", "#"]) & admin_filter
 )
-from pyrogram import enums
-
-
 async def tag_all_users(_, message):
     global SPAM_CHATS
 
