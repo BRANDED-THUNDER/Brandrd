@@ -19,16 +19,36 @@ from telethon.tl.functions.phone import (
 # vc on
 @app.on_message(filters.video_chat_started)
 async def brah(_, msg):
+    group_name = msg.chat.title or "Private Chat"
+    chat_id = msg.chat.id
+
     await msg.reply(
-        "<b><blockquote>😍 ᴠɪᴅᴇᴏ ᴄʜᴀᴛ sᴛᴀʀᴛᴇᴅ 🥳</blockquote></b>",
+        f"<b><blockquote>"
+        f" ᴠɪᴅᴇᴏ ᴄʜᴀᴛ sᴛᴀʀᴛᴇᴅ \n\n"
+        ──────────
+        f"๏ sᴛᴀʀᴛᴇᴅ ʙʏ : {group_name}\n"
+        f"๏ ᴄʜᴀᴛ ɪᴅ : <code>{chat_id}</code>"
+        ──────────
+        ᴊᴏɪɴ ᴛʜᴇ ᴠɪᴅᴇᴏ ᴄʜᴀᴛ ɴᴏᴡ!
+        f"</blockquote></b>"
     )
 
 
 # vc off
 @app.on_message(filters.video_chat_ended)
 async def brah2(_, msg):
+    group_name = msg.chat.title or "Private Chat"
+    chat_id = msg.chat.id
+
     await msg.reply(
-        "<b><blockquote>😕 ᴠɪᴅᴇᴏ ᴄʜᴀᴛ ᴇɴᴅᴇᴅ 💔</blockquote></b>",
+        f"<b><blockquote>"
+        f" ᴠɪᴅᴇᴏ ᴄʜᴀᴛ ᴇɴᴅᴇᴅ \n\n"
+        ──────────
+        f"๏ ɢʀᴏᴜᴘ : {group_name}\n"
+        f"๏ ᴄʜᴀᴛ ɪᴅ : <code>{chat_id}</code>"
+        f"๏ ᴅᴜʀᴀᴛɪᴏɴ : {duration_text}"
+        ──────────
+        f"</blockquote></b>"
     )
 # ================================
 # Invite Members on VC
