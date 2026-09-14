@@ -183,7 +183,6 @@ async def mentionall(client, message):
                 await client.send_message(
                     chat_id,
                     txt,
-                    parse_mode=enums.ParseMode.HTML
                 )
 
             elif mode == "text_on_reply":
