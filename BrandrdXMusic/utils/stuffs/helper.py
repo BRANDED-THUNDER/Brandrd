@@ -1,54 +1,64 @@
 # helper for strings
 
 class Helper(object):
-    HELP_M = '''ᴄʜᴏᴏsᴇ ᴛʜᴇ ᴄᴀᴛᴇɢᴏʀʏ ғᴏʀ ᴡʜɪᴄʜ ʏᴏᴜ ᴡᴀɴɴᴀ ɢᴇᴛ ʜᴇʟᴩ.
+
+    HELP_M = '''<b><blockquote>
+ᴄʜᴏᴏsᴇ ᴛʜᴇ ᴄᴀᴛᴇɢᴏʀʏ ғᴏʀ ᴡʜɪᴄʜ ʏᴏᴜ ᴡᴀɴɴᴀ ɢᴇᴛ ʜᴇʟᴩ.
 ᴀsᴋ ʏᴏᴜʀ ᴅᴏᴜʙᴛs ᴀᴛ sᴜᴘᴘᴏʀᴛ ᴄʜᴀᴛ
 
-ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs ᴄᴀɴ ʙᴇ ᴜsᴇᴅ ᴡɪᴛʜ : /'''
-    HELP_ChatGPT = '''CʜᴀᴛGPT
+ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs ᴄᴀɴ ʙᴇ ᴜsᴇᴅ ᴡɪᴛʜ : /
+</blockquote></b>'''
+
+    HELP_ChatGPT = '''<b><blockquote>
+CʜᴀᴛGPT
 
 CʜᴀᴛGPT ᴄᴏᴍᴍᴀɴᴅꜱ:
 
 /ask ➠ ǫᴜᴇʀɪᴇs ᴛʜᴇ ᴀɪ ᴍᴏᴅᴇʟ ᴛᴏ ɢᴇᴛ ᴀ ʀᴇsᴘᴏɴsᴇ ᴛᴏ ʏᴏᴜʀ ǫᴜᴇsᴛɪᴏɴ.
-'''
+</blockquote></b>'''
 
-    HELP_Reel = '''Rᴇᴇʟ
+    HELP_Reel = '''<b><blockquote>
+Rᴇᴇʟ
 
 Rᴇᴇʟ ᴄᴏᴍᴍᴀɴᴅꜱ:
 
 /ig [URL] ➠ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟs. Pʀᴏᴠɪᴅᴇ ᴛʜᴇ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟ URL ᴀғᴛᴇʀ ᴛʜᴇ ᴄᴏᴍᴍᴀɴᴅ.
 /instagram [URL] ➠ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟs. Pʀᴏᴠɪᴅᴇ ᴛʜᴇ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟ URL ᴀғᴛᴇʀ ᴛʜᴇ ᴄᴏᴍᴍᴀɴᴅ.
-/reel [URL]  ➠ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟs. Pʀᴏᴠɪᴅᴇ ᴛʜᴇ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟ URL ᴀғᴛᴇʀ ᴛʜᴇ ᴄᴏᴍᴍᴀɴᴅ.
-'''
+/reel [URL] ➠ ᴅᴏᴡɴʟᴏᴀᴅ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟs. Pʀᴏᴠɪᴅᴇ ᴛʜᴇ ɪɴsᴛᴀɢʀᴀᴍ ʀᴇᴇʟ URL ᴀғᴛᴇʀ ᴛʜᴇ ᴄᴏᴍᴍᴀɴᴅ.
+</blockquote></b>'''
 
-    HELP_TagAll = '''Tᴀɢ
+    HELP_TagAll = '''<b><blockquote>
+Tᴀɢ
 
-  Tᴀɢ ᴄᴏᴍᴍᴀɴᴅꜱ:
+Tᴀɢ ᴄᴏᴍᴍᴀɴᴅꜱ:
 
 ✿ ᴄʜᴏᴏsᴇ ᴛᴀɢ ɪɴ ʏᴏᴜʀ ᴄʜᴀᴛ ✿
 
-๏ /gmtag ➛ ɢᴏᴏᴅ ᴍᴏʀɴɪɴɢ 
+๏ /gmtag ➛ ɢᴏᴏᴅ ᴍᴏʀɴɪɴɢ
 ᴛᴀɢ sᴛᴏᴘ ⇴ /gmstop
 
 ๏ /gntag ➛ ɢᴏᴏᴅ ɴɪɢʜᴛ ᴛᴀɢ sᴛᴏᴘ ⇴ /gnstop
 
 ๏ /tagall ➛ ʀᴀɴᴅᴏᴍ ᴍᴇssᴀɢᴇ ᴛᴀɢ sᴛᴏᴘ ⇴ /tagoff /tagstop
 
-๏ /hitag ➛ ʀᴀɴᴅᴏᴍ ʜɪɴᴅɪ ᴍᴇssᴀɢᴇ ᴛᴀɢ sᴛᴏᴘ ⇴/histop
+๏ /hitag ➛ ʀᴀɴᴅᴏᴍ ʜɪɴᴅɪ ᴍᴇssᴀɢᴇ ᴛᴀɢ sᴛᴏᴘ ⇴ /histop
 
 ๏ /shayari ➛ ʀᴀɴᴅᴏᴍ sʜᴀʏᴀʀɪ ᴛᴀɢ sᴛᴏᴘ ⇴ /shstop
 
 ๏ /utag ➛ ᴀɴʏ ᴡʀɪᴛᴛᴇɴ ᴛᴇxᴛ ᴛᴀɢ sᴛᴏᴘ ⇴ /cancel
-'''
+</blockquote></b>'''
 
-    HELP_Info = '''Iɴꜰᴏ
+    HELP_Info = '''<b><blockquote>
+Iɴꜰᴏ
 
 Iɴꜰᴏ ᴄᴏᴍᴍᴀɴᴅꜱ:
 
 /id : ɢᴇᴛ ᴛʜᴇ ᴄᴜʀʀᴇɴᴛ ɢʀᴏᴜᴘ ɪᴅ. ɪғ ᴜsᴇᴅ ʙʏ ʀᴇᴘʟʏɪɴɢ ᴛᴏ ᴀ ᴍᴇssᴀɢᴇ, ɢᴇᴛs ᴛʜᴀᴛ ᴜsᴇʀ's ɪᴅ.
 /info : ɢᴇᴛ ɪɴғᴏʀᴍᴀᴛɪᴏɴ ᴀʙᴏᴜᴛ ᴀ ᴜsᴇʀ.
-'''
-    HELP_History = '''Hɪsᴛᴏʀʏ
+</blockquote></b>'''
+
+    HELP_History = '''<b><blockquote>
+Hɪsᴛᴏʀʏ
 
 Hɪsᴛᴏʀʏ ᴄᴏᴍᴍᴀɴᴅꜱ:
 
@@ -59,66 +69,73 @@ Dᴇsᴄʀɪᴘᴛɪᴏɴ:
 ⦿ Fᴇᴛᴄʜᴇs ᴀ ʀᴀɴᴅᴏᴍ ᴍᴇssᴀɢᴇ ғʀᴏᴍ ᴀ ᴜsᴇʀ's ᴍᴇssᴀɢᴇ ʜɪsᴛᴏʀʏ.
 
 Usᴀɢᴇ:
-⦿ /sɢ [ᴜsᴇʀɴᴀᴍᴇ/ɪᴅ/ʀᴇᴘʏ]
+⦿ /sɢ [ᴜsᴇʀɴᴀᴍᴇ/ɪᴅ/ʀᴇᴘʟʏ]
 
 Dᴇᴛᴀɪs:
 ⦿ Fᴇᴛᴄʜᴇs ᴀ ʀᴀɴᴅᴏᴍ ᴍᴇssᴀɢᴇ ғʀᴏᴍ ᴛʜᴇ ᴍᴇssᴀɢᴇ ʜɪsᴛᴏʀʏ ᴏғ ᴛʜᴇ sᴘᴇᴄɪғɪᴇᴅ ᴜsᴇʀ.
-⦿ Cᴀɴ ʙᴇ ᴜsᴇᴅ ʙʏ ᴘʀᴏᴠɪᴅɪɴɢ ᴀ ᴜsᴇʀɴᴀᴍᴇ, ᴜsᴇʀ ID, ᴏʀ ʀᴇᴘʏɪɴɢ ᴛᴏ ᴀ ᴍᴇssᴀɢᴇ ғʀᴏᴍ ᴛʜᴇ ᴜsᴇʀ.
-⦿ Aᴄᴄᴇssɪʙᴇ ᴏɴʏ ʙʏ ᴛʜᴇ ʙᴏᴛ's ᴀssɪsᴛᴀɴᴛs.
+⦿ Cᴀɴ ʙᴇ ᴜsᴇᴅ ʙʏ ᴘʀᴏᴠɪᴅɪɴɢ ᴀ ᴜsᴇʀɴᴀᴍᴇ, ᴜsᴇʀ ID, ᴏʀ ʀᴇᴘʟʏɪɴɢ ᴛᴏ ᴀ ᴍᴇssᴀɢᴇ ғʀᴏᴍ ᴛʜᴇ ᴜsᴇʀ.
+⦿ Aᴄᴄᴇssɪʙʟᴇ ᴏɴʏ ʙʏ ᴛʜᴇ ʙᴏᴛ's ᴀssɪsᴛᴀɴᴛs.
 
-Exᴀᴍᴘᴇs:
-⦿ /sɢ ᴜsᴇʀɴᴀᴍᴇ`
-⦿ /sɢ ᴜsᴇʀ_ɪᴅ`
-⦿ /sɢ [ʀᴇᴘʏ ᴛᴏ ᴀ ᴍᴇssᴀɢᴇ]`
-'''
+Exᴀᴍᴘʟᴇs:
+⦿ /sɢ ᴜsᴇʀɴᴀᴍᴇ
+⦿ /sɢ ᴜsᴇʀ_ɪᴅ
+⦿ /sɢ [ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴍᴇssᴀɢᴇ]
+</blockquote></b>'''
 
-    HELP_Couples = '''ᴄᴏᴜᴘʟᴇꜱ
+    HELP_Couples = '''<b><blockquote>
+ᴄᴏᴜᴘʟᴇꜱ
 
 ᴄᴏᴜᴘʟᴇꜱ ᴄᴏᴍᴍᴀɴᴅꜱ:
 
 /couples - ᴄʜᴏᴏsᴇ 2 ᴜsᴇʀs ᴀɴᴅ sᴇɴᴅ ᴛʜᴇɪʀ ɴᴀᴍᴇ ᴀs ᴄᴏᴜᴘʟᴇs ɪɴ ʏᴏᴜʀ ᴄʜᴀᴛ.
-'''
+</blockquote></b>'''
 
-    HELP_Extra = '''Exᴛʀᴀ
+    HELP_Extra = '''<b><blockquote>
+Exᴛʀᴀ
 
 Exᴛʀᴀ ᴄᴏᴍᴍᴀɴᴅꜱ:
 
 ⦿ /tgm ➠ ᴜᴘʟᴏᴀᴅs ᴀ ᴘʜᴏᴛᴏ (ᴜɴᴅᴇʀ 𝟻ᴍʙ) ᴛᴏ ᴛʜᴇ ᴄʟᴏᴜᴅ ᴀɴᴅ ɢɪᴠᴇs ᴀ ʟɪɴᴋ.
 ⦿ /paste ➠ ᴜᴘʟᴏᴀᴅs ᴀ ᴛᴇxᴛ sɴɪᴘᴘᴇᴛ ᴛᴏ ᴛʜᴇ ᴄʟᴏᴜᴅ ᴀɴᴅ ɢɪᴠᴇs ᴀ ʟɪɴᴋ.
 ⦿ /tr ➠ ᴛʀᴀɴsʟᴀᴛᴇs ᴛᴇxᴛ.
-'''
-    HELP_Action = '''Aᴄᴛɪᴏɴ
+</blockquote></b>'''
+
+    HELP_Action = '''<b><blockquote>
+Aᴄᴛɪᴏɴ
 
 Aᴄᴛɪᴏɴ ᴄᴏᴍᴍᴀɴᴅꜱ:
 
-» ᴀᴠᴀɪʟᴀʙʟᴇ ᴄᴏᴍᴍᴀɴᴅs ꜰᴏʀ Bᴀɴs & Mᴜᴛᴇ :
+» ᴀᴠᴀɪʟᴀʙʟᴇ ᴄᴏᴍᴍᴀɴᴅs ꜰᴏʀ Bᴀɴs & Mᴜᴛᴇ:
 
- ❍ /kickme: kicks the user who issued the command
+❍ /kickme: kicks the user who issued the command
 
 Admins only:
- ❍ /ban <userhandle>: bans a user. (via handle, or reply)
- ❍ /sban <userhandle>: Silently ban a user. Deletes command, Replied message and doesn't reply. (via handle, or reply)
- ❍ /tban <userhandle> x(m/h/d): bans a user for x time. (via handle, or reply). m = minutes, h = hours, d = days.
- ❍ /unban <userhandle>: unbans a user. (via handle, or reply)
- ❍ /kick <userhandle>: kicks a user out of the group, (via handle, or reply)
- ❍ /mute <userhandle>: silences a user. Can also be used as a reply, muting the replied to user.
- ❍ /tmute <userhandle> x(m/h/d): mutes a user for x time. (via handle, or reply). m = minutes, h = hours, d = days.
- ❍ /unmute <userhandle>: unmutes a user. Can also be used as a reply, muting the replied to user.
+❍ /ban &lt;userhandle&gt;: bans a user. (via handle, or reply)
+❍ /sban &lt;userhandle&gt;: Silently ban a user. Deletes command, Replied message and doesn't reply. (via handle, or reply)
+❍ /tban &lt;userhandle&gt; x(m/h/d): bans a user for x time. (via handle, or reply). m = minutes, h = hours, d = days.
+❍ /unban &lt;userhandle&gt;: unbans a user. (via handle, or reply)
+❍ /kick &lt;userhandle&gt;: kicks a user out of the group, (via handle, or reply)
+❍ /mute &lt;userhandle&gt;: silences a user. Can also be used as a reply, muting the replied to user.
+❍ /tmute &lt;userhandle&gt; x(m/h/d): mutes a user for x time. (via handle, or reply). m = minutes, h = hours, d = days.
+❍ /unmute &lt;userhandle&gt;: unmutes a user. Can also be used as a reply, muting the replied to user.
 __
-𝐒ᴘᴇᴄɪᴀʟ 𝐂ᴏᴍᴍᴀɴᴅs 𝐒ᴜᴘᴘᴏʀᴛ 𝐀ʟʟ 𝐄xᴀᴍᴘʟᴇ  - Bɾαɳԃҽԃ  Ⴆαɳ Ⴆɾαɳԃҽԃ ɱυƚҽ Ⴆɾαɳԃҽԃ ρɾσɱσƚҽ ..... 𝚎𝚝𝚌
-'''
-    HELP_Search = '''Sᴇᴀʀᴄʜ
+𝐒ᴘᴇᴄɪᴀʟ 𝐂ᴏᴍᴍᴀɴᴅs 𝐒ᴜᴘᴘᴏʀᴛ 𝐀ʟʟ 𝐄xᴀᴍᴘʟᴇ - Bɾαɳԃҽԃ Ⴆαɳ Ⴆɾαɳԃҽԃ ɱυƚҽ Ⴆɾαɳԃҽԃ ρɾσɱσᴛᴇ ..... 𝚎𝚝𝚌
+</blockquote></b>'''
+
+    HELP_Search = '''<b><blockquote>
+Sᴇᴀʀᴄʜ
 
 Sᴇᴀʀᴄʜ ᴄᴏᴍᴍᴀɴᴅꜱ:
 
-• /google <query> : Search the google for the given query.
-• /image (/imgs) <query> : Get the images regarding to your query
+• /google &lt;query&gt; : Search the google for the given query.
+• /image (/imgs) &lt;query&gt; : Get the images regarding to your query
 
 Example:
 /google pyrogram: return top 5 reuslts.
-'''
+</blockquote></b>'''
 
-    HELP_Font = '''ғᴏɴᴛ
+    HELP_Font = '''<b><blockquote>
+ғᴏɴᴛ
 
 ʜᴇʀᴇ ɪs ᴛʜᴇ ʜᴇʟᴘ ғᴏʀ ᴛʜᴇ ғᴏɴᴛ ᴍᴏᴅᴜʟᴇ:
 
@@ -127,15 +144,19 @@ Example:
 ʙʏ ᴜsɪɴɢ ᴛʜɪs ᴍᴏᴅᴜʟᴇ ʏᴏᴜ ᴄᴀɴ ᴄʜᴀɴɢᴇ ғᴏɴᴛs ᴏғ ᴀɴʏ ᴛᴇxᴛ!
 
 ◌ /font [ᴛᴇxᴛ]
-'''
-    HELP_Bots = '''Bᴏᴛs
+</blockquote></b>'''
+
+    HELP_Bots = '''<b><blockquote>
+Bᴏᴛs
 
 ʜᴇʀᴇ ɪs ᴛʜᴇ ʜᴇʟᴘ ғᴏʀ ᴛʜᴇ Bᴏᴛs ᴍᴏᴅᴜʟᴇ:
 ɢᴀᴍᴇs ᴍᴏᴅᴜʟᴇ:
 
 ◌ /bots - ɢᴇᴛ ᴀ ʟɪsᴛ ᴏғ ʙᴏᴛs ɪɴ ᴛʜᴇ ɢʀᴏᴜᴘ.
-'''
-    HELP_TG = '''Ⓣ-ɢʀᴀᴘʜ
+</blockquote></b>'''
+
+    HELP_TG = '''<b><blockquote>
+Ⓣ-ɢʀᴀᴘʜ
 
 Ⓣ-ɢʀᴀᴘʜ ᴄᴏᴍᴍᴀɴᴅꜱ:
 
@@ -143,31 +164,39 @@ Example:
 
 ◌ /tgm [ʀᴇᴘʟʏ ᴛᴏ ᴀɴʏ ᴍᴇᴅɪᴀ]
 ◌ /tgt [ʀᴇᴘʟʏ ᴛᴏ ᴀɴʏ ᴍᴇᴅɪᴀ]
-'''
-    HELP_Source = '''Sᴏᴜʀᴄᴇ
+</blockquote></b>'''
 
-Tʜɪs ᴍᴏᴅᴜᴇ ᴘʀᴏᴠɪᴅᴇs ᴜᴛɪɪᴛʏ ᴄᴏᴍᴍᴀɴᴅs ғᴏʀ ᴜsᴇʀs ᴛᴏ ɪɴᴛᴇʀᴀᴄᴛ ᴡɪᴛʜ ᴛʜᴇ ʙᴏᴛ.:
+    HELP_Source = '''<b><blockquote>
+Sᴏᴜʀᴄᴇ
+
+Tʜɪs ᴍᴏᴅᴜᴇ ᴘʀᴏᴠɪᴅᴇs ᴜᴛɪʟɪᴛʏ ᴄᴏᴍᴍᴀɴᴅs ғᴏʀ ᴜsᴇʀs ᴛᴏ ɪɴᴛᴇʀᴀᴄᴛ ᴡɪᴛʜ ᴛʜᴇ ʙᴏᴛ.:
 
 Sᴏᴜʀᴄᴇ ᴍᴏᴅᴜʟᴇ:
 
-◌ /ʀᴇᴘᴏ : Gᴇᴛ ᴛʜᴇ ɪɴᴋ ᴛᴏ ᴛʜᴇ ʙᴏᴛ's sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ ʀᴇᴘᴏsɪᴛᴏʀʏ.
-'''
-    HELP_TD = '''Tʀᴜᴛʜ-ᗪᴀʀᴇ
+◌ /ʀᴇᴘᴏ : Gᴇᴛ ᴛʜᴇ ʟɪɴᴋ ᴛᴏ ᴛʜᴇ ʙᴏᴛ's sᴏᴜʀᴄᴇ ᴄᴏᴅᴇ ʀᴇᴘᴏsɪᴛᴏʀʏ.
+</blockquote></b>'''
+
+    HELP_TD = '''<b><blockquote>
+Tʀᴜᴛʜ-ᗪᴀʀᴇ
 
 ʜᴇʀᴇ ɪs ᴛʜᴇ ʜᴇʟᴘ ғᴏʀ ᴛʜᴇ Tʀᴜᴛʜ-ᗪᴀʀᴇ ᴍᴏᴅᴜʟᴇ:
 
 ᴛʀᴜᴛʜ ᴀɴᴅ ᴅᴀʀᴇ
 ◌ /truth : sᴇɴᴅs ᴀ ʀᴀɴᴅᴏᴍ ᴛʀᴜᴛʜ sᴛʀɪɴɢ.
 ◌ /dare : sᴇɴᴅs ᴀ ʀᴀɴᴅᴏᴍ ᴅᴀʀᴇ sᴛʀɪɴɢ.
-'''
-    HELP_Quiz = '''Qᴜɪᴢ
+</blockquote></b>'''
+
+    HELP_Quiz = '''<b><blockquote>
+Qᴜɪᴢ
 
 ʜᴇʀᴇ ɪs ᴛʜᴇ ʜᴇʟᴘ ғᴏʀ ᴛʜᴇ Qᴜɪᴢ ᴍᴏᴅᴜʟᴇ:
 
 Qᴜɪᴢ
 ◌ /quiz - ᴛᴏ ɢᴇᴛ ᴀɴ ʀᴀɴᴅᴏᴍ ǫᴜɪᴢ
-'''
-    HELP_TTS = '''ᴛᴛs
+</blockquote></b>'''
+
+    HELP_TTS = '''<b><blockquote>
+ᴛᴛs
 
 ʜᴇʀᴇ ɪs ᴛʜᴇ ʜᴇʟᴘ ғᴏʀ ᴛʜᴇ ᴛᴛs ᴍᴏᴅᴜʟᴇ:
 
@@ -175,43 +204,46 @@ Qᴜɪᴢ
 ◌ /tts : [ᴛᴇxᴛ]
 
 ◌ ᴜsᴀɢᴇ ➛ ᴛᴇxᴛ ᴛᴏ ᴀᴜᴅɪᴏ
-'''
-    HELP_Radio = '''Radio
+</blockquote></b>'''
+
+    HELP_Radio = '''<b><blockquote>
+Radio
 
 ʜᴇʀᴇ ɪs ᴛʜᴇ ʜᴇʟᴘ ғᴏʀ ᴛʜᴇ Radio ᴍᴏᴅᴜʟᴇ:
 
 ◌ /radio - ᴛᴏ ᴘʟᴀʏ ʀᴀᴅɪᴏ ɪɴ ᴛʜᴇ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ.
-'''
-    HELP_Q = '''ǫᴜᴏᴛʟʏ
+</blockquote></b>'''
+
+    HELP_Q = '''<b><blockquote>
+ǫᴜᴏᴛʟʏ
 
 ʜᴇʀᴇ ɪs ᴛʜᴇ ʜᴇʟᴘ ғᴏʀ ᴛʜᴇ ǫᴜᴏᴛʟʏ ᴍᴏᴅᴜʟᴇ:
 
 ◌ /q : ᴄʀᴇᴀᴛᴇ ᴀ ǫᴜᴏᴛᴇ ғʀᴏᴍ ᴛʜᴇ ᴍᴇssᴀɢᴇ
 
 ◌ /q r : ᴄʀᴇᴀᴛᴇ ᴀ ǫᴜᴏᴛᴇ ғʀᴏᴍ ᴛʜᴇ ᴍᴇssᴀɢᴇ ᴡɪᴛʜ ʀᴇᴘʟʏ
-'''
-    
-    
+</blockquote></b>'''
+
     fullpromote = {
-    'can_change_info': True,
-    'can_post_messages': True,
-    'can_edit_messages': True,
-    'can_delete_messages': True,
-    'can_invite_users': True,
-    'can_restrict_members': True,
-    'can_pin_messages': True,
-    'can_promote_members': True,
-    'can_manage_chat': True,
-}
+        'can_change_info': True,
+        'can_post_messages': True,
+        'can_edit_messages': True,
+        'can_delete_messages': True,
+        'can_invite_users': True,
+        'can_restrict_members': True,
+        'can_pin_messages': True,
+        'can_promote_members': True,
+        'can_manage_chat': True,
+    }
 
     promoteuser = {
-    'can_change_info': False,
-    'can_post_messages': True,
-    'can_edit_messages': True,
-    'can_delete_messages': False,
-    'can_invite_users': True,
-    'can_restrict_members': False,
-    'can_pin_messages': False,
-    'can_promote_members': False,
-    'can_manage_chat': True,
-}
+        'can_change_info': False,
+        'can_post_messages': True,
+        'can_edit_messages': True,
+        'can_delete_messages': False,
+        'can_invite_users': True,
+        'can_restrict_members': False,
+        'can_pin_messages': False,
+        'can_promote_members': False,
+        'can_manage_chat': True,
+    }
