@@ -8,22 +8,55 @@ from BrandrdXMusic.utils.decorators.language import language
 
 @app.on_message(filters.command(["logger"]) & SUDOERS)
 @language
+from pyrogram import enums
+
+
 async def logger(client, message, _):
     usage = _["log_1"]
+
     if len(message.command) != 2:
-        return await message.reply_text(usage)
+        return await message.reply_text(
+            f"<b><blockquote>{usage}</blockquote></b>",
+        )
+
     state = message.text.split(None, 1)[1].strip().lower()
+
     if state == "enable":
         await add_on(2)
-        await message.reply_text(_["log_2"])
+
+        await message.reply_text(
+            f"<b><blockquote>"
+            f"🟢 {_[\"log_2\"]}"
+            f"</blockquote></b>",
+        )
+
     elif state == "disable":
         await add_off(2)
-        await message.reply_text(_["log_3"])
+
+        await message.reply_text(
+            f"<b><blockquote>"
+            f"🔴 {_[\"log_3\"]}"
+            f"</blockquote></b>",
+        )
+
     else:
-        await message.reply_text(usage)
+        await message.reply_text(
+            f"<b><blockquote>{usage}</blockquote></b>",
+        )
+
 
 @app.on_message(filters.command(["cookies"]) & SUDOERS)
 @language
 async def logger(client, message, _):
     await message.reply_document("cookies/logs.csv")
-    await message.reply_text("Please check given file to cookies file choosing logs...")
+
+    await message.reply_text(
+        "<b><blockquote>"
+        "🍪 Cᴏᴏᴋɪᴇs Lᴏɢ Fɪʟᴇ Sᴇɴᴛ Sᴜᴄᴄᴇssғᴜʟʟʏ!\n\n"
+        "📂 Pʟᴇᴀsᴇ Cʜᴇᴄᴋ Tʜᴇ Gɪᴠᴇɴ Fɪʟᴇ Fᴏʀ Cᴏᴏᴋɪᴇs Fɪʟᴇ Cʜᴏᴏsɪɴɢ Lᴏɢs..."
+        "</blockquote></b>",
+    )
+
+
+**Note:** Tumhare code mein dono functions ka naam `logger` hai. Python mein second `logger()` pehle wale ko overwrite karega. Agar dono same file mein hain, pehle function ka naam alag rakhna hoga.
+
