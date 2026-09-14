@@ -1,4 +1,3 @@
-```python
 # Helper for strings
 
 class Helper(object):
@@ -313,4 +312,3 @@ Qᴜɪᴢ:
         'can_promote_members': False,
         'can_manage_chat': True,
     }
-```
