@@ -27,7 +27,6 @@ def dt():
     dt_list = dt_string.split(" ")
     return dt_list
     
-```python
 def dt():
     now = datetime.now()
     dt_string = now.strftime("%d/%m/%Y %H:%M")
