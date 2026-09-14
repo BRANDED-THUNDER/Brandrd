@@ -33,4 +33,3 @@ async def play_logs(message, streamtype):
                 )
             except:
                 pass
-Isse pura **YouTube Play Log** ek single bold blockquote ke andar aayega.
