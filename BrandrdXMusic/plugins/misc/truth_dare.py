@@ -7,11 +7,6 @@ from BrandrdXMusic import app
 truth_api_url = "https://api.truthordarebot.xyz/v1/truth"
 dare_api_url = "https://api.truthordarebot.xyz/v1/dare"
 
-
-@app.on_message(filters.command("truth"))
-from pyrogram import enums
-
-
 @app.on_message(filters.command("truth"))
 def get_truth(client, message):
     try:
