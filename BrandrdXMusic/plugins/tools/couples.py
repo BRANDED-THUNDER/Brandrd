@@ -27,6 +27,13 @@ def dt():
     dt_list = dt_string.split(" ")
     return dt_list
     
+```python
+def dt():
+    now = datetime.now()
+    dt_string = now.strftime("%d/%m/%Y %H:%M")
+    dt_list = dt_string.split(" ")
+    return dt_list
+
 
 def dt_tom():
     a = (
@@ -38,102 +45,111 @@ def dt_tom():
     )
     return a
 
+
 tomorrow = str(dt_tom())
 today = str(dt()[0])
+
 
 @app.on_message(filters.command("couples"))
 async def ctest(_, message):
     cid = message.chat.id
+
     if message.chat.type == ChatType.PRIVATE:
-        return await message.reply_text("ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ᴏɴʟʏ ᴡᴏʀᴋs ɪɴ ɢʀᴏᴜᴘs.")
+        return await message.reply_text(
+            "ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ᴏɴʟʏ ᴡᴏʀᴋs ɪɴ ɢʀᴏᴜᴘs."
+        )
+
     try:
-     #  is_selected = await get_couple(cid, today)
-     #  if not is_selected:
-         msg = await message.reply_text("ɢᴇɴᴇʀᴀᴛɪɴɢ ᴄᴏᴜᴘʟᴇs ɪᴍᴀɢᴇ...")
-         #GET LIST OF USERS
-         list_of_users = []
+        # is_selected = await get_couple(cid, today)
+        # if not is_selected:
 
-         async for i in app.get_chat_members(message.chat.id, limit=50):
-             if not i.user.is_bot:
-               list_of_users.append(i.user.id)
+        msg = await message.reply_text(
+            "ɢᴇɴᴇʀᴀᴛɪɴɢ ᴄᴏᴜᴘʟᴇs ɪᴍᴀɢᴇ..."
+        )
 
-         c1_id = random.choice(list_of_users)
-         c2_id = random.choice(list_of_users)
-         while c1_id == c2_id:
-              c1_id = random.choice(list_of_users)
+        # GET LIST OF USERS
+        list_of_users = []
 
+        async for i in app.get_chat_members(message.chat.id, limit=50):
+            if not i.user.is_bot:
+                list_of_users.append(i.user.id)
 
-         photo1 = (await app.get_chat(c1_id)).photo
-         photo2 = (await app.get_chat(c2_id)).photo
- 
-         N1 = (await app.get_users(c1_id)).mention 
-         N2 = (await app.get_users(c2_id)).mention
-         
-         try:
-            p1 = await app.download_media(photo1.big_file_id, file_name="pfp.png")
-         except Exception:
+        if len(list_of_users) < 2:
+            await msg.edit_text(
+                "❌ ɴᴏᴛ ᴇɴᴏᴜɢʜ ᴜsᴇʀs ᴛᴏ sᴇʟᴇᴄᴛ ᴀ ᴄᴏᴜᴘʟᴇ."
+            )
+            return
+
+        c1_id = random.choice(list_of_users)
+        c2_id = random.choice(list_of_users)
+
+        while c1_id == c2_id:
+            c2_id = random.choice(list_of_users)
+
+        # Get user information
+        user1 = await app.get_users(c1_id)
+        user2 = await app.get_users(c2_id)
+
+        c1_name = user1.first_name or "User"
+        c2_name = user2.first_name or "User"
+
+        N1 = user1.mention
+        N2 = user2.mention
+
+        # Get profile photos
+        photo1 = (await app.get_chat(c1_id)).photo
+        photo2 = (await app.get_chat(c2_id)).photo
+
+        try:
+            p1 = await app.download_media(
+                photo1.big_file_id,
+                file_name="pfp.png"
+            )
+        except Exception:
             p1 = "BrandrdXMusic/assets/upic.png"
-         try:
-            p2 = await app.download_media(photo2.big_file_id, file_name="pfp1.png")
-         except Exception:
+
+        try:
+            p2 = await app.download_media(
+                photo2.big_file_id,
+                file_name="pfp1.png"
+            )
+        except Exception:
             p2 = "BrandrdXMusic/assets/upic.png"
-            
-         img1 = Image.open(f"{p1}")
-         img2 = Image.open(f"{p2}")
 
-         img = Image.open("BrandrdXMusic/assets/cppicbranded.jpg")
+        img1 = Image.open(p1).convert("RGBA")
+        img2 = Image.open(p2).convert("RGBA")
 
-         img1 = img1.resize((437,437))
-         img2 = img2.resize((437,437))
+        img = Image.open(
+            "BrandrdXMusic/assets/cppicbranded.jpg"
+        ).convert("RGBA")
 
-         mask = Image.new('L', img1.size, 0)
-         draw = ImageDraw.Draw(mask) 
-         draw.ellipse((0, 0) + img1.size, fill=255)
+        img1 = img1.resize((437, 437))
+        img2 = img2.resize((437, 437))
 
-         mask1 = Image.new('L', img2.size, 0)
-         draw = ImageDraw.Draw(mask1) 
-         draw.ellipse((0, 0) + img2.size, fill=255)
+        mask = Image.new("L", img1.size, 0)
+        draw = ImageDraw.Draw(mask)
+        draw.ellipse(
+            (0, 0) + img1.size,
+            fill=255
+        )
 
+        mask1 = Image.new("L", img2.size, 0)
+        draw = ImageDraw.Draw(mask1)
+        draw.ellipse(
+            (0, 0) + img2.size,
+            fill=255
+        )
 
-         img1.putalpha(mask)
-         img2.putalpha(mask1)
+        img1.putalpha(mask)
+        img2.putalpha(mask1)
 
-         draw = ImageDraw.Draw(img)
+        img.paste(img1, (116, 160), img1)
+        img.paste(img2, (789, 160), img2)
 
-         img.paste(img1, (116, 160), img1)
-         img.paste(img2, (789, 160), img2)
+        img.save(f"test_{cid}.png")
 
-         img.save(f'test_{cid}.png')
-    
-         TXT = f"""
-**ᴛᴏᴅᴀʏ's ᴄᴏᴜᴘʟᴇ ᴏғ ᴛʜᴇ ᴅᴀʏ :
-
-{N1} + {N2} = 💚
-
-ɴᴇxᴛ ᴄᴏᴜᴘʟᴇs ᴡɪʟʟ ʙᴇ sᴇʟᴇᴄᴛᴇᴅ ᴏɴ {tomorrow} !!**
-"""
-    
-         await message.reply_photo(f"test_{cid}.png", caption=TXT, reply_markup=InlineKeyboardMarkup(POLICE),
-    )
-         await msg.delete()
-         a = upload_file(f"test_{cid}.png")
-         for x in a:
-           img = "https://graph.org/" + x
-           couple = {"c1_id": c1_id, "c2_id": c2_id}
-          # await save_couple(cid, today, couple, img)
-    
-         
-      # elif is_selected:
-      #   msg = await message.reply_text("𝐆ᴇᴛᴛɪɴɢ 𝐓ᴏᴅᴀʏs 𝐂ᴏᴜᴘʟᴇs 𝐈ᴍᴀɢᴇ...")
-      #   b = await _get_image(cid)
-       #  c1_id = int(is_selected["c1_id"])
-       #  c2_id = int(is_selected["c2_id"])
-       #  c1_name = (await app.get_users(c1_id)).first_name
-        # c2_name = (await app.get_users(c2_id)).first_name
-         
-      #   TXT = f"""
-
-f"""<b><blockquote>
+        # HTML formatted caption
+        TXT = f"""<b><blockquote>
 ᴛᴏᴅᴀʏ's sᴇʟᴇᴄᴛᴇᴅ ᴄᴏᴜᴘʟᴇs " 🎉 :
 
 ➖➖➖➖➖➖➖➖➖➖➖➖
@@ -142,33 +158,54 @@ f"""<b><blockquote>
 
 ➖➖➖➖➖➖➖➖➖➖➖➖
 
-ɴᴇxᴛ ᴄᴏᴜᴘʟᴇꜱ ᴡɪʟʟ ʙᴇ ꜱᴇʟᴇᴄᴛᴇᴅ ᴏɴ {tomorrow} "!!
+ɴᴇxᴛ ᴄᴏᴜᴘʟᴇꜱ ᴡɪʟʟ ʙᴇ sᴇʟᴇᴄᴛᴇᴅ ᴏɴ {tomorrow} "!!
 </blockquote></b>"""
 
- #        await message.reply_photo(b, caption=TXT)
-        # await msg.delete()
+        await message.reply_photo(
+            f"test_{cid}.png",
+            caption=TXT,
+            parse_mode=enums.ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(POLICE),
+        )
+
+        await msg.delete()
+
+        a = upload_file(f"test_{cid}.png")
+
+        for x in a:
+            img_url = "https://graph.org/" + x
+            couple = {
+                "c1_id": c1_id,
+                "c2_id": c2_id,
+            }
+
+            # await save_couple(cid, today, couple, img_url)
+
+        # elif is_selected:
+        #     ...
+
     except Exception as e:
-        print(str(e))
-    try:
-      os.remove(f"./downloads/pfp1.png")
-      os.remove(f"./downloads/pfp2.png")
-      os.remove(f"test_{cid}.png")
-    except Exception:
-       pass
-         
+        print(f"Couples Error: {e}")
+
+    finally:
+        try:
+            os.remove("./downloads/pfp.png")
+        except Exception:
+            pass
+
+        try:
+            os.remove("./downloads/pfp1.png")
+        except Exception:
+            pass
+
+        try:
+            os.remove(f"test_{cid}.png")
+        except Exception:
+            pass
+
 
 __mod__ = "COUPLES"
+
 __help__ = """
 **» /couples** - Get Todays Couples Of The Group In Interactive View
 """
-
-
-
-
-
-    
-
-
-
-
-    
