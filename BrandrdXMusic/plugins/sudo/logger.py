@@ -8,9 +8,6 @@ from BrandrdXMusic.utils.decorators.language import language
 
 @app.on_message(filters.command(["logger"]) & SUDOERS)
 @language
-from pyrogram import enums
-
-
 async def logger(client, message, _):
     usage = _["log_1"]
 
