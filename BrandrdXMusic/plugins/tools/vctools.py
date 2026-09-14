@@ -27,76 +27,186 @@ async def brah(_, msg):
 async def brah2(_, msg):
     await msg.reply("**😕ᴠɪᴅᴇᴏ ᴄʜᴀᴛ ᴇɴᴅᴇᴅ💔**")
 
+# ================================
+# Invite Members on VC
+# ================================
 
-# invite members on vc
 @app.on_message(filters.video_chat_members_invited)
-async def brah3(app: app, message: Message):
-    text = f"➻ {message.from_user.mention}\n\n**๏ ɪɴᴠɪᴛɪɴɢ:**\n\n**➻ **"
-    for user in message.video_chat_members_invited.users:
-            text += f"[{user.first_name}](tg://user?id={user.id})
-        except Exception:
-            pass
-
+async def brah3(client, message: Message):
     try:
-        invite_link = await app.export_chat_invite_link(message.chat.id)
-        add_link = f"https://t.me/{app.username}?startgroup=true"
-        reply_text = f"{text} 🤭🤭"
+        text = (
+            f"➻ {message.from_user.mention}\n\n"
+            f"**๏ ɪɴᴠɪᴛɪɴɢ:**\n\n"
+        )
+
+        for user in message.video_chat_members_invited.users:
+            try:
+                text += f"➻ [{user.first_name}](tg://user?id={user.id})\n"
+            except Exception:
+                pass
+
+        add_link = f"https://t.me/{client.me.username}?startgroup=true"
+
+        reply_text = f"{text}\n🤭🤭"
 
         await message.reply(
             reply_text,
             reply_markup=InlineKeyboardMarkup(
                 [
-                    [InlineKeyboardButton(text="๏ ᴊᴏɪɴ ᴠᴄ ๏", url=add_link)],
+                    [
+                        InlineKeyboardButton(
+                            "๏ ᴊᴏɪɴ ᴠᴄ ๏",
+                            url=add_link
+                        )
+                    ]
                 ]
             ),
         )
+
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"VC Invite Error: {e}")
 
 
-####
-
+# ================================
+# Math Command
+# ================================
 
 @app.on_message(filters.command("math", prefixes="/"))
-def calculate_math(client, message):
-    expression = message.text.split("/math ", 1)[1]
+async def calculate_math(client, message: Message):
     try:
-        result = eval(expression)
-        response = f"ᴛʜᴇ ʀᴇsᴜʟᴛ ɪs : {result}"
-    except:
-        response = "ɪɴᴠᴀʟɪᴅ ᴇxᴘʀᴇssɪᴏɴ"
-    message.reply(response)
+        if len(message.command) < 2:
+            return await message.reply(
+                "❌ Usage: `/math 10 + 20`"
+            )
+
+        expression = message.text.split("/math ", 1)[1]
+
+        # Basic protection
+        allowed = "0123456789+-*/().% "
+
+        if not all(char in allowed for char in expression):
+            return await message.reply(
+                "❌ Invalid expression!"
+            )
+
+        result = eval(expression, {"__builtins__": None}, {})
+
+        await message.reply(
+            f"ᴛʜᴇ ʀᴇsᴜʟᴛ ɪs : `{result}`"
+        )
+
+    except Exception:
+        await message.reply(
+            "ɪɴᴠᴀʟɪᴅ ᴇxᴘʀᴇssɪᴏɴ"
+        )
 
 
-@app.on_message(filters.command(["spg"], ["/", "!", "."]))
-async def search(event):
-    msg = await event.respond("Searching...")
-    async with aiohttp.ClientSession() as session:
-        start = 1
-        async with session.get(
-            f"https://content-customsearch.googleapis.com/customsearch/v1?cx=ec8db9e1f9e41e65e&q={event.text.split()[1]}&key=AIzaSyAa8yy0GdcGPHdtD083HiGGx_S0vMPScDM&start={start}",
-            headers={"x-referer": "https://explorer.apis.google.com"},
-        ) as r:
-            response = await r.json()
-            result = ""
+# ================================
+# Google Search Command
+# ================================
+
+@app.on_message(filters.command(["spg"], prefixes=["/", "!", "."]))
+async def search(client, message: Message):
+    try:
+        if len(message.command) < 2:
+            return await message.reply(
+                "❌ Usage: `/spg search query`"
+            )
+
+        query = " ".join(message.command[1:])
+
+        msg = await message.reply("🔎 Searching...")
+
+        async with aiohttp.ClientSession() as session:
+
+            start = 1
+
+            url = (
+                "https://content-customsearch.googleapis.com/"
+                "customsearch/v1"
+            )
+
+            params = {
+                "cx": "YOUR_SEARCH_ENGINE_ID",
+                "q": query,
+                "key": "YOUR_GOOGLE_API_KEY",
+                "start": start,
+            }
+
+            headers = {
+                "x-referer": "https://explorer.apis.google.com"
+            }
+
+            async with session.get(
+                url,
+                params=params,
+                headers=headers
+            ) as r:
+
+                response = await r.json()
 
             if not response.get("items"):
-                return await msg.edit("No results found!")
+                return await msg.edit(
+                    "❌ No results found!"
+                )
+
+            result = ""
+            seen = set()
+
             for item in response["items"]:
-                title = item["title"]
-                link = item["link"]
-                if "/s" in item["link"]:
-                    link = item["link"].replace("/s", "")
-                elif re.search(r"\/\d", item["link"]):
-                    link = re.sub(r"\/\d", "", item["link"])
+
+                title = item.get("title", "No title")
+                link = item.get("link", "")
+
+                if not link or link in seen:
+                    continue
+
+                seen.add(link)
+
+                # Clean URL
+                if "/s" in link:
+                    link = link.replace("/s", "", 1)
+
+                elif re.search(r"/\d", link):
+                    link = re.sub(r"/\d", "", link)
+
                 if "?" in link:
                     link = link.split("?")[0]
-                if link in result:
-                    # remove duplicates
-                    continue
-                result += f"{title}\n{link}\n\n"
-            prev_and_next_btns = [
-                Button.inline("▶️Next▶️", data=f"next {start+10} {event.text.split()[1]}")
-            ]
-            await msg.edit(result, link_preview=False, buttons=prev_and_next_btns)
-            await session.close()
+
+                result += (
+                    f"**{title}**\n"
+                    f"`{link}`\n\n"
+                )
+
+            if not result:
+                return await msg.edit(
+                    "❌ No valid results found!"
+                )
+
+            buttons = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "▶️ Next ▶️",
+                            callback_data=f"spg_next:{start + 10}:{query}"
+                        )
+                    ]
+                ]
+            )
+
+            await msg.edit(
+                result,
+                disable_web_page_preview=True,
+                reply_markup=buttons
+            )
+
+    except Exception as e:
+        print(f"Search Error: {e}")
+
+        try:
+            await msg.edit(
+                "❌ Search failed. Please try again."
+            )
+        except Exception:
+            pass
+
