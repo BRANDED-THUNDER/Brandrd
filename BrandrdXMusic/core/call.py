@@ -2396,49 +2396,50 @@ async def _stop_vc_monitor(
     # ========================================================
     # START
     # ========================================================
-
     class Call:
 
-    def __init__(self):
-        ...
-        self.one = PyTgCalls(...)
-        self.two = PyTgCalls(...)
-        self.three = PyTgCalls(...)
-        self.four = PyTgCalls(...)
-        self.five = PyTgCalls(...)
+        def __init__(self):
+             ...
+             self.one = PyTgCalls(...)
+             self.two = PyTgCalls(...)
+             self.three = PyTgCalls(...)
+             self.four = PyTgCalls(...)
+             self.five = PyTgCalls(...)
 
-    async def _get_vc_participants(self, chat_id, assistant):
-        ...
+        async def _get_vc_participants(self, chat_id, assistant):
+            ...
 
-    def _register_vc_participant_handler(self, chat_id, assistant):
-        ...
+        def _register_vc_participant_handler(self, chat_id, assistant):
+            ...
 
-    async def _vc_monitor_loop(self, chat_id, assistant):
-        ...
+        async def _vc_monitor_loop(self, chat_id, assistant):
+            ...
 
-    async def _start_vc_monitor(self, chat_id, assistant):
-        ...
+        async def _start_vc_monitor(self, chat_id, assistant):
+            ...
 
-    async def _stop_vc_monitor(self, chat_id):
-        ...
+        async def _stop_vc_monitor(self, chat_id):
+            ...
 
-    async def pause_stream(self, chat_id):
-        ...
+        async def pause_stream(self, chat_id):
+            ...
 
-    async def mute_stream(self, chat_id):
-        ...
+        async def mute_stream(self, chat_id):
+            ...
 
-    async def get_participant(self, chat_id):
-        ...
+        async def get_participant(self, chat_id):
+            ...
 
-    async def join_call(self, ...):
-        ...
+        async def join_call(self, ...):
+            ...
 
-    async def start(self):
-        ...
+        async def start(self):
+            ...
         
-    async def decorators(self):
-        ...
+        async def decorators(self):
+            ...
+
+    
     # ========================================================
     # DECORATORS
     # ========================================================
