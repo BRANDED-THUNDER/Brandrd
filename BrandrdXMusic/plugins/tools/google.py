@@ -1,12 +1,10 @@
 import asyncio
 import html
 import logging
-import re
 
-import aiohttp
-from bs4 import BeautifulSoup
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from googlesearch import search
 
 from BrandrdXMusic import app
 
@@ -14,114 +12,14 @@ LOGGER = logging.getLogger(__name__)
 
 
 # =========================================================
-# PLAY STORE SEARCH
+# GOOGLE SEARCH
+# /app
 # =========================================================
 
-async def search_playstore(query: str):
-    url = "https://play.google.com/store/search"
+@app.on_message(filters.command(["google", "gle"]))
+async def google_search_app(client, message):
 
-    params = {
-        "q": query,
-        "c": "apps",
-        "hl": "en",
-        "gl": "IN",
-    }
-
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/140.0.0.0 Safari/537.36"
-        ),
-        "Accept-Language": "en-US,en;q=0.9",
-    }
-
-    timeout = aiohttp.ClientTimeout(total=20)
-
-    try:
-        async with aiohttp.ClientSession(
-            timeout=timeout,
-            headers=headers
-        ) as session:
-
-            async with session.get(url, params=params) as response:
-
-                if response.status != 200:
-                    LOGGER.error(
-                        "Play Store returned HTTP %s",
-                        response.status
-                    )
-                    return []
-
-                text = await response.text()
-
-        soup = BeautifulSoup(text, "html.parser")
-
-        results = []
-        seen = set()
-
-        # Play Store app links
-        for a in soup.find_all("a", href=True):
-
-            href = a.get("href", "")
-
-            if "/store/apps/details?id=" not in href:
-                continue
-
-            match = re.search(
-                r"/store/apps/details\?id=([^&]+)",
-                href
-            )
-
-            if not match:
-                continue
-
-            package_id = match.group(1)
-
-            if package_id in seen:
-                continue
-
-            seen.add(package_id)
-
-            title = a.get_text(" ", strip=True)
-
-            if not title:
-                title = package_id
-
-            if href.startswith("/"):
-                link = "https://play.google.com" + href
-            else:
-                link = href
-
-            results.append(
-                {
-                    "title": title,
-                    "id": package_id,
-                    "link": link,
-                }
-            )
-
-            if len(results) >= 10:
-                break
-
-        return results
-
-    except Exception as e:
-        LOGGER.exception("Play Store search error: %s", e)
-        return []
-
-
-# =========================================================
-# /APP
-# =========================================================
-
-@app.on_message(filters.command(["app", "apps"]))
-async def playstore_search_handler(client, message):
-
-    # -----------------------------------------
-    # GET QUERY
-    # -----------------------------------------
-
+    # Get query from reply or command
     if message.reply_to_message and message.reply_to_message.text:
         query = message.reply_to_message.text.strip()
 
@@ -132,70 +30,75 @@ async def playstore_search_handler(client, message):
         await message.reply_text(
             "<b>❌ Pʟᴇᴀsᴇ Gɪᴠᴇ A Sᴇᴀʀᴄʜ Qᴜᴇʀʏ.</b>\n\n"
             "<blockquote>"
-            "<b>Eᴜɪᴍᴘʟᴇ:</b>\n"
-            "<code>/app WhatsApp</code>\n"
-            "<code>/app Instagram</code>\n"
-            "<code>/app Free Fire</code>"
+            "<b>Example:</b>\n"
+            "<code>/app India</code>\n"
+            "<code>/app Telegram</code>\n"
+            "<code>/app Python</code>"
             "</blockquote>",
         )
         return
 
     status = await message.reply_text(
-        "<b>🔎 Sᴇᴀʀᴄʜɪɴɢ Pʟᴀʏ Sᴛᴏʀᴇ...</b>\n\n"
-        f"<blockquote><b>Qᴜᴇʀʏ:</b> "
-        f"<code>{html.escape(query)}</code></blockquote>",
+        "<b>🔎 Sᴇᴀʀᴄʜɪɴɢ Oɴ Gᴏᴏɢʟᴇ...</b>\n\n"
+        f"<blockquote>"
+        f"<b>Qᴜᴇʀʏ:</b> "
+        f"<code>{html.escape(query)}</code>"
+        f"</blockquote>",
     )
 
     try:
 
-        results = await search_playstore(query)
+        # Google search is synchronous,
+        # so run it outside the async event loop.
+        def google_search():
+            return list(
+                search(
+                    query,
+                    num_results=8,
+                    lang="en",
+                    sleep_interval=1,
+                )
+            )
 
-        # -----------------------------------------
-        # NO RESULTS
-        # -----------------------------------------
+        results = await asyncio.to_thread(google_search)
 
         if not results:
             await status.edit_text(
                 "<b>❌ Nᴏ Rᴇsᴜʟᴛs Fᴏᴜɴᴅ.</b>\n\n"
-                f"<blockquote>"
+                "<blockquote>"
                 f"<b>Qᴜᴇʀʏ:</b> "
                 f"<code>{html.escape(query)}</code>"
-                f"</blockquote>",
+                "</blockquote>",
             )
             return
 
-        # -----------------------------------------
-        # SHOW RESULTS
-        # -----------------------------------------
-
         text = (
-            "<b>📱 Pʟᴀʏ Sᴛᴏʀᴇ Rᴇsᴜʟᴛs</b>\n\n"
-            f"<blockquote>"
+            "<b>🔎 Gᴏᴏɢʟᴇ Sᴇᴀʀᴄʜ Rᴇsᴜʟᴛs</b>\n\n"
+            "<blockquote>"
             f"<b>Qᴜᴇʀʏ:</b> "
             f"<code>{html.escape(query)}</code>"
-            f"</blockquote>\n"
+            "</blockquote>\n"
         )
 
         buttons = []
 
-        for index, item in enumerate(results[:8], start=1):
+        for i, url in enumerate(results, 1):
 
-            title = html.escape(item["title"])
-            package_id = html.escape(item["id"])
-            link = item["link"]
+            # Basic title fallback
+            title = url
 
             text += (
-                f"\n<b>{index}. {title}</b>\n"
+                f"\n<b>{i}. Rᴇsᴜʟᴛ</b>\n"
                 f"<blockquote>"
-                f"<b>ID:</b> <code>{package_id}</code>"
+                f"<code>{html.escape(url[:150])}</code>"
                 f"</blockquote>"
             )
 
             buttons.append(
                 [
                     InlineKeyboardButton(
-                        f"📱 {item['title'][:25]}",
-                        url=link,
+                        f"🔗 Rᴇsᴜʟᴛ {i}",
+                        url=url,
                     )
                 ]
             )
@@ -208,32 +111,33 @@ async def playstore_search_handler(client, message):
 
     except Exception as e:
 
-        LOGGER.exception("APP command failed: %s", e)
+        LOGGER.exception("Google search error: %s", e)
 
         await status.edit_text(
-            "<b>⚠️ Eʀʀᴏʀ Wʜɪʟᴇ Sᴇᴀʀᴄʜɪɴɢ.</b>\n\n"
+            "<b>⚠️ Gᴏᴏɢʟᴇ Sᴇᴀʀᴄʜ Eʀʀᴏʀ.</b>\n\n"
             "<blockquote>"
-            f"<b>Eʀʀᴏʀ:</b> <code>{html.escape(str(e))}</code>"
+            f"<b>Eʀʀᴏʀ:</b> "
+            f"<code>{html.escape(str(e))}</code>"
             "</blockquote>",
         )
 
 
 # =========================================================
-# MODULE HELP
+# HELP
 # =========================================================
 
-__MODULE__ = "Aᴘᴘ Sᴇᴀʀᴄʜ"
+__MODULE__ = "Gᴏᴏɢʟᴇ"
 
 __HELP__ = """
-<b>📱 Aᴘᴘ Sᴇᴀʀᴄʜ</b>
+<b>🔎 Gᴏᴏɢʟᴇ Sᴇᴀʀᴄʜ</b>
 
 <blockquote>
-<b>/app [query]</b> - Sᴇᴀʀᴄʜ Pʟᴀʏ Sᴛᴏʀᴇ
-<b>/apps [query]</b> - Sᴀᴍᴇ Aꜱ Aʙᴏᴠᴇ
+<b>/google [query]</b> - Sᴇᴀʀᴄʜ Oɴ Gᴏᴏɢʟᴇ
+<b>/gle [query]</b> - Sᴀᴍᴇ Aꜱ Aʙᴏᴠᴇ
 
 <b>Eᴜɪᴍᴘʟᴇ:</b>
-<code>/app WhatsApp</code>
-<code>/app Instagram</code>
-<code>/app Free Fire</code>
+<code>/google India</code>
+<code>/google Telegram</code>
+<code>/google Python</code>
 </blockquote>
 """
