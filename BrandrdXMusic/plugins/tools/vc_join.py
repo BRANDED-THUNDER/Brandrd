@@ -1,32 +1,21 @@
-# BrandrdXMusic/plugins/tools/vc_join.py
-
+import asyncio
 import html
 import logging
-import asyncio
 
 from pyrogram import Client
 
-from BrandrdXMusic import app
-
 LOGGER = logging.getLogger(__name__)
 
+VC_USERS = {}
 
-# ============================================================
-# VC JOIN NOTIFICATION
-# ============================================================
 
 async def send_vc_join_notification(
     client: Client,
     chat_id: int,
     user_id: int,
 ):
-    """
-    Send VC join notification in the same group
-    where the user joined the Voice Chat.
-    """
-
     try:
-        user = await client.get_users(user_id)
+        user = await client.get_users(int(user_id))
 
         if user.username:
             username = f"@{html.escape(user.username)}"
@@ -43,106 +32,97 @@ async def send_vc_join_notification(
         )
 
         await client.send_message(
-            chat_id=chat_id,
+            chat_id=int(chat_id),
             text=text,
             parse_mode="html",
             disable_web_page_preview=True,
         )
 
         LOGGER.info(
-            "VC JOIN | Chat: %s | User: %s",
+            "VC JOIN NOTIFICATION SENT | Chat: %s | User: %s",
             chat_id,
             user_id,
         )
 
     except Exception as e:
-        LOGGER.exception(
-            "VC JOIN notification failed: %s",
+        LOGGER.error(
+            "VC JOIN NOTIFICATION FAILED | Chat: %s | User: %s | %s",
+            chat_id,
+            user_id,
             e,
+            exc_info=True,
         )
 
 
-# ============================================================
-# PARTICIPANT CACHE
-# ============================================================
+def _extract_user_ids(participants):
+    current_users = set()
 
-# {
-#     chat_id: {
-#         user_id,
-#         user_id,
-#         user_id
-#     }
-# }
-#
-# This keeps track of users already detected in VC.
+    if not participants:
+        return current_users
 
-VC_USERS = {}
+    for participant in participants:
+        try:
+            user_id = None
 
+            user = getattr(
+                participant,
+                "user",
+                None,
+            )
 
-# ============================================================
-# PROCESS VC PARTICIPANTS
-# ============================================================
+            if user is not None:
+                user_id = getattr(
+                    user,
+                    "id",
+                    None,
+                )
+
+            if not user_id:
+                user_id = getattr(
+                    participant,
+                    "user_id",
+                    None,
+                )
+
+            if user_id:
+                current_users.add(
+                    int(user_id)
+                )
+
+        except Exception:
+            continue
+
+    return current_users
+
 
 async def process_vc_participants(
     client: Client,
     chat_id: int,
     participants,
 ):
-    """
-    Compare the previous VC participant list with
-    the current list.
-
-    New users are treated as VC joins.
-    """
-
     try:
+        chat_id = int(chat_id)
 
-        current_users = set()
-
-        # -----------------------------------------
-        # Extract current participant IDs
-        # -----------------------------------------
-
-        for participant in participants:
-
-            try:
-                user = getattr(participant, "user", None)
-
-                if user:
-                    user_id = user.id
-                else:
-                    user_id = getattr(
-                        participant,
-                        "user_id",
-                        None,
-                    )
-
-                if user_id:
-                    current_users.add(int(user_id))
-
-            except Exception:
-                continue
-
-        # -----------------------------------------
-        # Previous users
-        # -----------------------------------------
+        current_users = _extract_user_ids(
+            participants
+        )
 
         previous_users = VC_USERS.get(
             chat_id,
             set(),
         )
 
-        # -----------------------------------------
-        # Detect newly joined users
-        # -----------------------------------------
-
         joined_users = (
             current_users - previous_users
         )
 
-        # -----------------------------------------
-        # Send notification
-        # -----------------------------------------
+        LOGGER.info(
+            "VC CHECK | Chat: %s | Previous: %s | Current: %s | Joined: %s",
+            chat_id,
+            len(previous_users),
+            len(current_users),
+            list(joined_users),
+        )
 
         for user_id in joined_users:
 
@@ -152,102 +132,67 @@ async def process_vc_participants(
                 user_id=user_id,
             )
 
-            # Small delay prevents Telegram flood
-            await asyncio.sleep(0.3)
-
-        # -----------------------------------------
-        # Update cache
-        # -----------------------------------------
+            await asyncio.sleep(
+                0.3
+            )
 
         VC_USERS[chat_id] = current_users
 
     except Exception as e:
 
-        LOGGER.exception(
-            "VC participant processing failed: %s",
+        LOGGER.error(
+            "VC PARTICIPANT PROCESSING FAILED | Chat: %s | %s",
+            chat_id,
             e,
+            exc_info=True,
         )
 
-
-# ============================================================
-# INITIALIZE VC
-# ============================================================
 
 async def initialize_vc(
     client: Client,
     chat_id: int,
     participants,
 ):
-    """
-    Use this when the VC monitor starts.
-
-    IMPORTANT:
-    Existing participants are stored without sending
-    #JoinVc notifications.
-
-    This prevents the bot from announcing everyone already
-    inside the VC as a new join.
-    """
-
     try:
+        chat_id = int(chat_id)
 
-        current_users = set()
-
-        for participant in participants:
-
-            try:
-
-                user = getattr(
-                    participant,
-                    "user",
-                    None,
-                )
-
-                if user:
-                    user_id = user.id
-                else:
-                    user_id = getattr(
-                        participant,
-                        "user_id",
-                        None,
-                    )
-
-                if user_id:
-                    current_users.add(
-                        int(user_id)
-                    )
-
-            except Exception:
-                continue
+        current_users = _extract_user_ids(
+            participants
+        )
 
         VC_USERS[chat_id] = current_users
 
+        LOGGER.info(
+            "VC INITIALIZED | Chat: %s | Existing Users: %s",
+            chat_id,
+            list(current_users),
+        )
+
     except Exception as e:
 
-        LOGGER.exception(
-            "VC initialization failed: %s",
+        LOGGER.error(
+            "VC INITIALIZATION FAILED | Chat: %s | %s",
+            chat_id,
             e,
+            exc_info=True,
         )
 
 
-# ============================================================
-# REMOVE VC CACHE
-# ============================================================
-
-def remove_vc_cache(chat_id: int):
-    """
-    Remove cached participant data when VC ends.
-    """
+def remove_vc_cache(
+    chat_id: int,
+):
+    chat_id = int(chat_id)
 
     VC_USERS.pop(
         chat_id,
         None,
     )
 
+    LOGGER.info(
+        "VC CACHE REMOVED | Chat: %s",
+        chat_id,
+    )
 
-# ============================================================
-# MODULE INFORMATION
-# ============================================================
 
 __MODULE__ = "VC Join"
 
@@ -265,4 +210,3 @@ Notifications are sent directly
 to the same group where the user
 joins the Voice Chat.
 </blockquote>
-"""
