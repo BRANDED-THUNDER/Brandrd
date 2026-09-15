@@ -671,9 +671,7 @@ class Call(PyTgCalls):
                 role = "👑 ADMIN"
             elif status == "member":
                 role = "👤 MEMBER"
-            else:
-                role = "🔐 AUTH"
-
+            
             text = (
                 f"<blockquote>{tag}\n"
                 f"Usᴇʀ - {await vclogger_mention(user_id)}\n"
