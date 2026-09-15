@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from typing import Union
 
 from pyrogram import Client
-from pyrogram.types import InlineKeyboardMarkup
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ntgcalls import TelegramServerError
 from pytgcalls import PyTgCalls
 from pytgcalls.exceptions import (
@@ -12,6 +12,8 @@ from pytgcalls.exceptions import (
     NoActiveGroupCall,
 )
 from pytgcalls.types import (
+    JoinedGroupCallParticipant,
+    LeftGroupCallParticipant,
     MediaStream,
     AudioQuality,
     VideoQuality,
@@ -29,13 +31,18 @@ from BrandrdXMusic.utils.database import (
     get_loop,
     group_assistant,
     is_autoend,
+    is_vclogger_on,
     music_on,
     remove_active_chat,
     remove_active_video_chat,
     set_loop,
 )
 from BrandrdXMusic.utils.exceptions import AssistantErr
-from BrandrdXMusic.utils.formatters import check_duration, seconds_to_min, speed_converter
+from BrandrdXMusic.utils.formatters import (
+    check_duration,
+    seconds_to_min,
+    speed_converter,
+)
 from BrandrdXMusic.utils.inline.play import stream_markup
 from BrandrdXMusic.utils.stream.autoclear import auto_clean
 from BrandrdXMusic.utils.thumbnails import get_thumb
@@ -50,6 +57,14 @@ async def _clear_(chat_id):
     db[chat_id] = []
     await remove_active_video_chat(chat_id)
     await remove_active_chat(chat_id)
+
+
+async def vclogger_mention(user_id: int):
+    try:
+        user = await app.get_users(user_id)
+        return user.mention
+    except:
+        return f"<a href='tg://user?id={user_id}'>ᴜsᴇʀ</a>"
 
 
 class Call(PyTgCalls):
@@ -630,6 +645,77 @@ class Call(PyTgCalls):
             if not isinstance(update, StreamAudioEnded):
                 return
             await self.change_stream(client, update.chat_id)
+
+        @self.one.on_participants_change()
+        @self.two.on_participants_change()
+        @self.three.on_participants_change()
+        @self.four.on_participants_change()
+        @self.five.on_participants_change()
+        async def participants_change_handler(_, update: Update):
+            if not await is_vclogger_on(update.chat_id):
+                return
+
+            if isinstance(update, JoinedGroupCallParticipant):
+                tag = "#JᴏɪɴᴇᴅVᴄ"
+            elif isinstance(update, LeftGroupCallParticipant):
+                tag = "#LᴇғᴛVᴄ"
+            else:
+                return
+
+            user_id = update.participant.user_id
+
+            # Participant role
+            status = getattr(update.participant, "status", None)
+
+            if status in ("owner", "administrator"):
+                role = "👑 ADMIN"
+            elif status == "member":
+                role = "👤 MEMBER"
+            else:
+                role = "🔐 AUTH"
+
+            text = (
+                f"<blockquote>{tag}\n"
+                f"Usᴇʀ - {await vclogger_mention(user_id)}\n"
+                f"Usᴇʀɪᴅ - <code>{user_id}</code>\n"
+                f"Rᴏʟᴇ - <b>{role}</b></blockquote>"
+            )
+
+            keyboard = InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "🎧 Jᴏɪɴ Tᴏ Vᴄ",
+                            url=f"https://t.me/c/{str(update.chat_id)[4:]}"
+                        )
+                    ]
+                ]
+            )
+
+            try:
+                sent_message = await app.send_message(
+                    chat_id=update.chat_id,
+                    text=text,
+                    reply_markup=keyboard,
+                )
+
+                async def delete_after_5_seconds():
+                    await asyncio.sleep(5)
+
+                    try:
+                        await sent_message.delete()
+                    except Exception:
+                        pass
+
+                asyncio.create_task(delete_after_5_seconds())
+
+                return sent_message
+
+            except Exception as e:
+                LOGGER(__name__).error(
+                    f"VC Logger send/delete error: {e}"
+                )
+                return None
 
 
 Hotty = Call()
