@@ -707,7 +707,7 @@ class Call(PyTgCalls):
                     except Exception:
                         pass
 
-                asyncio.create_task(delete_after_5_seconds())
+                asyncio.create_task(delete_after_10_seconds())
 
                 return sent_message
 
