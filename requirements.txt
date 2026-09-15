@@ -32,6 +32,7 @@ httpx>=0.28.1
 openai==1.41.0
 lyricsgenius==3.0.0
 spotipy
+SafoneAPI
 beautifulsoup4
 py-yt-search
 youtube_search
