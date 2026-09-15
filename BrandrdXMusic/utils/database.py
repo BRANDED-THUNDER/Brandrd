@@ -26,7 +26,7 @@ suggdb = mongodb.suggestion
 cleandb = mongodb.cleanmode
 queriesdb = mongodb.queries
 userdb = mongodb.userstats
-videodb = mongodb.vipvideocalls
+vcloggerdb = mongodb.vclogger
 chatsdbc = mongodb.chatsc  # for clone
 usersdbc = mongodb.tgusersdbc  # for clone
 
@@ -51,6 +51,7 @@ suggestion = {}
 mute = {}
 audio = {}
 video = {}
+vclogger = {}
 
 # Total Queries on bot
 
@@ -868,6 +869,35 @@ async def cleanmode_on(chat_id: int):
         cleanmode.remove(chat_id)
     except:
         pass
+
+
+# VC Logger
+async def is_vclogger_on(chat_id: int) -> bool:
+    mode = vclogger.get(chat_id)
+    if not mode:
+        user = await vcloggerdb.find_one({"chat_id": chat_id})
+        if not user:
+            vclogger[chat_id] = False
+            return False
+        vclogger[chat_id] = True
+        return True
+    return mode
+
+
+async def vclogger_on(chat_id: int):
+    vclogger[chat_id] = True
+    user = await vcloggerdb.find_one({"chat_id": chat_id})
+    if user:
+        return
+    return await vcloggerdb.insert_one({"chat_id": chat_id})
+
+
+async def vclogger_off(chat_id: int):
+    vclogger[chat_id] = False
+    user = await vcloggerdb.find_one({"chat_id": chat_id})
+    if not user:
+        return
+    return await vcloggerdb.delete_one({"chat_id": chat_id})
 
 
 # Audio Video Limit
