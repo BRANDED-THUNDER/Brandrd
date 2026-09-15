@@ -1,3 +1,4 @@
+import asyncio
 import html
 import logging
 import urllib.parse
@@ -13,13 +14,20 @@ LOGGER = logging.getLogger(__name__)
 
 
 # =========================================================
-# GOOGLE SEARCH
+# SEARCH ENGINE
 # =========================================================
 
-async def google_search(query: str, limit: int = 8):
+async def search_web(query: str, limit: int = 8):
+    """
+    API-key-free web search using DuckDuckGo HTML results.
+    """
+
     encoded_query = urllib.parse.quote_plus(query)
 
-    url = f"https://www.google.com/search?q={encoded_query}&num={limit}&hl=en"
+    url = (
+        "https://html.duckduckgo.com/html/"
+        f"?q={encoded_query}"
+    )
 
     headers = {
         "User-Agent": (
@@ -29,11 +37,9 @@ async def google_search(query: str, limit: int = 8):
         ),
         "Accept": (
             "text/html,application/xhtml+xml,"
-            "application/xml;q=0.9,image/avif,"
-            "image/webp,*/*;q=0.8"
+            "application/xml;q=0.9,*/*;q=0.8"
         ),
         "Accept-Language": "en-US,en;q=0.9",
-        "Cache-Control": "no-cache",
     }
 
     timeout = aiohttp.ClientTimeout(total=20)
@@ -51,49 +57,33 @@ async def google_search(query: str, limit: int = 8):
 
                 if response.status != 200:
                     LOGGER.error(
-                        "Google HTTP status: %s",
+                        "Search HTTP status: %s",
                         response.status
                     )
                     return []
 
-                data = await response.text()
+                page = await response.text()
 
-        soup = BeautifulSoup(data, "html.parser")
+        soup = BeautifulSoup(page, "html.parser")
 
         results = []
         seen = set()
 
-        # Google result blocks
-        for result in soup.select("div.MjjYud"):
+        for result in soup.select(".result"):
 
-            link_tag = result.select_one("a[href]")
+            title_tag = result.select_one(
+                ".result__title"
+            )
 
-            if not link_tag:
-                continue
+            link_tag = result.select_one(
+                ".result__a"
+            )
 
-            href = link_tag.get("href", "")
+            description_tag = result.select_one(
+                ".result__snippet"
+            )
 
-            # Only normal Google result URLs
-            if not href.startswith("/url?q="):
-                continue
-
-            parsed = urllib.parse.urlparse(href)
-            params = urllib.parse.parse_qs(parsed.query)
-
-            if "q" not in params:
-                continue
-
-            result_url = params["q"][0]
-
-            if not result_url.startswith(("http://", "https://")):
-                continue
-
-            if result_url in seen:
-                continue
-
-            title_tag = result.select_one("h3")
-
-            if not title_tag:
+            if not title_tag or not link_tag:
                 continue
 
             title = title_tag.get_text(
@@ -101,17 +91,32 @@ async def google_search(query: str, limit: int = 8):
                 strip=True
             )
 
-            description = ""
-
-            desc = result.select_one(
-                ".VwiC3b"
+            result_url = link_tag.get(
+                "href",
+                ""
             )
 
-            if desc:
-                description = desc.get_text(
-                    " ",
-                    strip=True
+            description = ""
+
+            if description_tag:
+                description = (
+                    description_tag.get_text(
+                        " ",
+                        strip=True
+                    )
                 )
+
+            # DuckDuckGo sometimes returns redirect URLs.
+            if result_url.startswith("//"):
+                result_url = "https:" + result_url
+
+            if not result_url.startswith(
+                ("http://", "https://")
+            ):
+                continue
+
+            if result_url in seen:
+                continue
 
             seen.add(result_url)
 
@@ -128,16 +133,19 @@ async def google_search(query: str, limit: int = 8):
 
         return results
 
+    except asyncio.CancelledError:
+        raise
+
     except Exception as e:
         LOGGER.exception(
-            "Google search failed: %s",
+            "Web search failed: %s",
             e
         )
         return []
 
 
 # =========================================================
-# GOOGLE COMMAND
+# GOOGLE / SEARCH COMMAND
 # =========================================================
 
 @app.on_message(
@@ -150,9 +158,9 @@ async def google_search_handler(
     message
 ):
 
-    # -----------------------------------------
-    # QUERY
-    # -----------------------------------------
+    # -----------------------------------------------------
+    # GET QUERY FROM REPLY
+    # -----------------------------------------------------
 
     if (
         message.reply_to_message
@@ -162,10 +170,18 @@ async def google_search_handler(
             message.reply_to_message.text.strip()
         )
 
+    # -----------------------------------------------------
+    # GET QUERY FROM COMMAND
+    # -----------------------------------------------------
+
     elif len(message.command) > 1:
         user_input = " ".join(
             message.command[1:]
         ).strip()
+
+    # -----------------------------------------------------
+    # NO QUERY
+    # -----------------------------------------------------
 
     else:
         await message.reply_text(
@@ -173,14 +189,19 @@ async def google_search_handler(
             "<blockquote>"
             "<b>Eᴜɪᴍᴘʟᴇ:</b>\n"
             "<code>/google branded king</code>\n"
-            "<code>/app phone pe</code>\n"
-            "<code>/gle Telegram</code>"
+            "<code>/google phone pe</code>\n"
+            "<code>/app Telegram</code>"
             "</blockquote>",
+            parse_mode="html"
         )
         return
 
+    # -----------------------------------------------------
+    # SEARCHING MESSAGE
+    # -----------------------------------------------------
+
     status = await message.reply_text(
-        "<b>🔎 Sᴇᴀʀᴄʜɪɴɢ Oɴ Gᴏᴏɢʟᴇ...</b>\n\n"
+        "<b>🔎 Sᴇᴀʀᴄʜɪɴɢ...</b>\n\n"
         "<blockquote>"
         "<b>Qᴜᴇʀʏ:</b> "
         f"<code>{html.escape(user_input)}</code>"
@@ -189,32 +210,34 @@ async def google_search_handler(
 
     try:
 
-        results = await google_search(
+        results = await search_web(
             user_input,
             limit=8
         )
 
-        # -----------------------------------------
+        # -------------------------------------------------
         # NO RESULTS
-        # -----------------------------------------
+        # -------------------------------------------------
 
         if not results:
+
             await status.edit_text(
                 "<b>❌ Nᴏ Rᴇsᴜʟᴛs Fᴏᴜɴᴅ.</b>\n\n"
                 "<blockquote>"
                 "<b>Qᴜᴇʀʏ:</b> "
                 f"<code>{html.escape(user_input)}</code>"
                 "</blockquote>\n\n"
-                "<i>Gᴏᴏɢʟᴇ Mᴀʏ Hᴀᴠᴇ Bʟᴏᴄᴋᴇᴅ Tʜᴇ Rᴇǫᴜᴇsᴛ.</i>",
+                "<i>Tʀʏ A Dɪғғᴇʀᴇɴᴛ Qᴜᴇʀʏ.</i>",
             )
+
             return
 
-        # -----------------------------------------
-        # BUILD RESULT
-        # -----------------------------------------
+        # -------------------------------------------------
+        # BUILD RESPONSE
+        # -------------------------------------------------
 
         text = (
-            "<b>🔎 Gᴏᴏɢʟᴇ Sᴇᴀʀᴄʜ</b>\n\n"
+            "<b>🔎 Sᴇᴀʀᴄʜ Rᴇsᴜʟᴛs</b>\n\n"
             "<blockquote>"
             "<b>Qᴜᴇʀʏ:</b> "
             f"<code>{html.escape(user_input)}</code>"
@@ -223,28 +246,33 @@ async def google_search_handler(
 
         buttons = []
 
-        for index, result in enumerate(
+        for number, result in enumerate(
             results,
             start=1
         ):
 
             title = html.escape(
-                result["title"]
+                str(result["title"])
             )
 
             description = html.escape(
-                result["description"]
+                str(result["description"])
             )
 
-            result_url = result["url"]
+            result_url = str(
+                result["url"]
+            )
 
-            if len(description) > 250:
+            if len(title) > 100:
+                title = title[:97] + "..."
+
+            if len(description) > 300:
                 description = (
-                    description[:247] + "..."
+                    description[:297] + "..."
                 )
 
             text += (
-                f"\n<b>❍ {index}. {title}</b>\n"
+                f"\n<b>❍ {number}. {title}</b>\n"
             )
 
             if description:
@@ -257,11 +285,15 @@ async def google_search_handler(
             buttons.append(
                 [
                     InlineKeyboardButton(
-                        f"🔗 Rᴇsᴜʟᴛ {index}",
+                        f"🔗 Rᴇsᴜʟᴛ {number}",
                         url=result_url
                     )
                 ]
             )
+
+        # -------------------------------------------------
+        # SEND RESULTS
+        # -------------------------------------------------
 
         await status.edit_text(
             text,
@@ -274,12 +306,12 @@ async def google_search_handler(
     except Exception as e:
 
         LOGGER.exception(
-            "Google command error: %s",
+            "Search command error: %s",
             e
         )
 
         await status.edit_text(
-            "<b>⚠️ Gᴏᴏɢʟᴇ Sᴇᴀʀᴄʜ Eʀʀᴏʀ</b>\n\n"
+            "<b>⚠️ Sᴇᴀʀᴄʜ Eʀʀᴏʀ</b>\n\n"
             "<blockquote>"
             f"<b>Eʀʀᴏʀ:</b> "
             f"<code>{html.escape(str(e))}</code>"
@@ -294,21 +326,17 @@ async def google_search_handler(
 __MODULE__ = "Gᴏᴏɢʟᴇ"
 
 __HELP__ = """
-<b>🔎 Gᴏᴏɢʟᴇ Sᴇᴀʀᴄʜ</b>
+<b>🔎 Wᴇʙ Sᴇᴀʀᴄʜ</b>
 
 <blockquote>
-<b>/google [query]</b>
-Sᴇᴀʀᴄʜ Gᴏᴏɢʟᴇ
-
-<b>/gle [query]</b>
-Sᴀᴍᴇ Aꜱ Gᴏᴏɢʟᴇ
-
-<b>/app [query]</b>
-Sᴀᴍᴇ Aꜱ Gᴏᴏɢʟᴇ
+<b>/google [query]</b> - Sᴇᴀʀᴄʜ Wᴇʙ
+<b>/gle [query]</b> - Sᴀᴍᴇ Sᴇᴀʀᴄʜ
+<b>/app [query]</b> - Sᴀᴍᴇ Sᴇᴀʀᴄʜ
+<b>/apps [query]</b> - Sᴀᴍᴇ Sᴇᴀʀᴄʜ
 
 <b>Eᴜɪᴍᴘʟᴇ:</b>
 <code>/google branded king</code>
-<code>/app phone pe</code>
-<code>/gle Telegram</code>
+<code>/google phone pe</code>
+<code>/app Telegram</code>
 </blockquote>
 """
