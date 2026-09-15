@@ -129,8 +129,18 @@ class Call(PyTgCalls):
         # VC MONITOR STATE
         # ----------------------------------------------------
 
+        # Your existing initialization code
+        self.one = PyTgCalls(self.one)
+        self.two = PyTgCalls(self.two)
+        self.three = PyTgCalls(self.three)
+        self.four = PyTgCalls(self.four)
+        self.five = PyTgCalls(self.five)
+
+        # VC monitoring
         self._vc_monitor_tasks = {}
         self._vc_monitor_running = set()
+        self._vc_monitor_initialized = set()
+        self._vc_event_registered = set()
 
         # ----------------------------------------------------
         # USERBOT 1
@@ -216,275 +226,553 @@ class Call(PyTgCalls):
             "CALL CLIENTS INITIALIZED"
         )
 
-    # ========================================================
-    # VC MONITOR LOOP
-    # ========================================================
+# ============================================================
+# VC PARTICIPANT FETCH
+# ============================================================
 
-    async def _vc_monitor_loop(
-        self,
-        chat_id: int,
+async def _get_vc_participants(
+    self,
+    chat_id: int,
+    assistant,
+):
+    """
+    Get current VC participants.
+
+    Primary:
+        get_group_call_participants()
+
+    Fallback:
+        get_participants()
+
+    IMPORTANT:
+    We do NOT install any custom raw-update handler here.
+    """
+
+    chat_id = int(chat_id)
+
+    # --------------------------------------------------------
+    # PRIMARY METHOD
+    # --------------------------------------------------------
+
+    try:
+
+        getter = getattr(
+            assistant,
+            "get_group_call_participants",
+            None,
+        )
+
+        if getter is not None:
+
+            participants = await getter(
+                chat_id
+            )
+
+            if participants is None:
+                participants = []
+
+            LOGGER(__name__).info(
+                "VC PARTICIPANTS FETCHED | "
+                "Chat: %s | Count: %s",
+                chat_id,
+                len(participants),
+            )
+
+            return participants
+
+    except Exception as e:
+
+        LOGGER(__name__).warning(
+            "VC CACHE PARTICIPANT FETCH FAILED | "
+            "Chat: %s | %s",
+            chat_id,
+            e,
+        )
+
+    # --------------------------------------------------------
+    # OLD VERSION FALLBACK
+    # --------------------------------------------------------
+
+    try:
+
+        getter = getattr(
+            assistant,
+            "get_participants",
+            None,
+        )
+
+        if getter is not None:
+
+            participants = await getter(
+                chat_id
+            )
+
+            if participants is None:
+                participants = []
+
+            LOGGER(__name__).info(
+                "VC FALLBACK PARTICIPANTS FETCHED | "
+                "Chat: %s | Count: %s",
+                chat_id,
+                len(participants),
+            )
+
+            return participants
+
+    except Exception as e:
+
+        LOGGER(__name__).warning(
+            "VC FALLBACK PARTICIPANT FETCH FAILED | "
+            "Chat: %s | %s",
+            chat_id,
+            e,
+        )
+
+    return None
+
+
+# ============================================================
+# VC PARTICIPANT EVENT REGISTRATION
+# ============================================================
+
+def _register_vc_participant_handler(
+    self,
+    chat_id: int,
+    assistant,
+):
+
+    chat_id = int(chat_id)
+
+    if not VC_JOIN_AVAILABLE:
+
+        LOGGER(__name__).warning(
+            "VC EVENT NOT REGISTERED | "
+            "VC JOIN MODULE UNAVAILABLE | Chat: %s",
+            chat_id,
+        )
+
+        return False
+
+    # --------------------------------------------------------
+    # CHECK API
+    # --------------------------------------------------------
+
+    event_method = getattr(
         assistant,
+        "on_participant_list_updated",
+        None,
+    )
+
+    if event_method is None:
+
+        LOGGER(__name__).warning(
+            "VC PARTICIPANT EVENT NOT AVAILABLE | "
+            "Chat: %s | Polling fallback will be used",
+            chat_id,
+        )
+
+        return False
+
+    # --------------------------------------------------------
+    # PREVENT DUPLICATE HANDLERS
+    # --------------------------------------------------------
+
+    handler_key = (
+        id(assistant),
+        chat_id,
+    )
+
+    if handler_key in self._vc_event_registered:
+
+        LOGGER(__name__).info(
+            "VC PARTICIPANT EVENT ALREADY REGISTERED | "
+            "Chat: %s",
+            chat_id,
+        )
+
+        return True
+
+    # --------------------------------------------------------
+    # EVENT CALLBACK
+    # --------------------------------------------------------
+
+    async def participant_update_handler(
+        group_call,
+        participants,
     ):
 
-        chat_id = int(chat_id)
+        # ----------------------------------------------------
+        # Ignore event when monitor is not active.
+        # ----------------------------------------------------
 
-        initialized = False
+        if chat_id not in self._vc_monitor_running:
+
+            return
+
+        # ----------------------------------------------------
+        # Ignore event until initial snapshot is ready.
+        # This prevents existing users from receiving
+        # false #JoinVc messages.
+        # ----------------------------------------------------
+
+        if chat_id not in self._vc_monitor_initialized:
+
+            LOGGER(__name__).debug(
+                "VC EVENT IGNORED BEFORE INITIALIZATION | "
+                "Chat: %s",
+                chat_id,
+            )
+
+            return
+
+        LOGGER(__name__).info(
+            "=================================================="
+        )
+
+        LOGGER(__name__).info(
+            "VC PARTICIPANT EVENT RECEIVED | "
+            "Chat: %s | Event Participants: %s",
+            chat_id,
+            len(participants or []),
+        )
+
+        # ----------------------------------------------------
+        # Give PyTgCalls cache a tiny moment to update.
+        # ----------------------------------------------------
+
+        await asyncio.sleep(
+            0.15
+        )
+
+        # ----------------------------------------------------
+        # Get FULL participant list.
+        #
+        # Do NOT directly pass the event list to
+        # process_vc_participants because the event payload
+        # may be only the changed participants, not the
+        # complete VC list.
+        # ----------------------------------------------------
+
+        current = None
+
+        for attempt in range(3):
+
+            current = await self._get_vc_participants(
+                chat_id,
+                assistant,
+            )
+
+            if current is not None:
+
+                LOGGER(__name__).info(
+                    "VC EVENT FULL LIST FETCHED | "
+                    "Chat: %s | Attempt: %s | Count: %s",
+                    chat_id,
+                    attempt + 1,
+                    len(current),
+                )
+
+                break
+
+            await asyncio.sleep(
+                0.2
+            )
+
+        if current is None:
+
+            LOGGER(__name__).warning(
+                "VC EVENT COULD NOT FETCH FULL LIST | "
+                "Chat: %s",
+                chat_id,
+            )
+
+            return
+
+        # ----------------------------------------------------
+        # PROCESS JOIN / LEAVE DIFFERENCE
+        # ----------------------------------------------------
+
+        if process_vc_participants is not None:
+
+            await process_vc_participants(
+                client=app,
+                chat_id=chat_id,
+                participants=current,
+            )
+
+            LOGGER(__name__).info(
+                "VC EVENT PROCESS COMPLETE | "
+                "Chat: %s | Current Users: %s",
+                chat_id,
+                len(current),
+            )
+
+        LOGGER(__name__).info(
+            "=================================================="
+        )
+
+    # --------------------------------------------------------
+    # REGISTER CALLBACK
+    #
+    # Supports both:
+    #
+    # assistant.on_participant_list_updated(callback)
+    #
+    # and decorator-style:
+    #
+    # assistant.on_participant_list_updated()(callback)
+    # --------------------------------------------------------
+
+    registered = False
+
+    try:
+
+        result = event_method(
+            participant_update_handler
+        )
+
+        registered = True
+
+        LOGGER(__name__).info(
+            "VC PARTICIPANT EVENT REGISTERED | "
+            "Chat: %s | Mode: direct",
+            chat_id,
+        )
+
+    except TypeError:
 
         try:
 
-            LOGGER(__name__).info(
-                "=================================================="
+            decorator = event_method()
+
+            decorator(
+                participant_update_handler
             )
 
+            registered = True
+
             LOGGER(__name__).info(
-                "VC MONITOR LOOP STARTED | Chat: %s",
+                "VC PARTICIPANT EVENT REGISTERED | "
+                "Chat: %s | Mode: decorator",
                 chat_id,
             )
-
-            LOGGER(__name__).info(
-                "VC MONITOR ASSISTANT | %s",
-                type(assistant).__name__,
-            )
-
-            while chat_id in self._vc_monitor_running:
-
-                try:
-
-                    # ------------------------------------------------
-                    # GET CURRENT VC PARTICIPANTS
-                    # ------------------------------------------------
-
-                    participants = (
-                        await assistant.get_group_call_participants(
-                            chat_id
-                        )
-                    )
-
-                    if participants is None:
-                        participants = []
-
-                    LOGGER(__name__).info(
-                        "VC PARTICIPANTS FETCHED | "
-                        "Chat: %s | Count: %s",
-                        chat_id,
-                        len(participants),
-                    )
-
-                    # ------------------------------------------------
-                    # INITIAL SNAPSHOT
-                    # ------------------------------------------------
-
-                    if not initialized:
-
-                        if initialize_vc is not None:
-
-                            await initialize_vc(
-                                client=app,
-                                chat_id=chat_id,
-                                participants=participants,
-                            )
-
-                            LOGGER(__name__).info(
-                                "VC INITIALIZE_VC EXECUTED | "
-                                "Chat: %s",
-                                chat_id,
-                            )
-
-                        initialized = True
-
-                        LOGGER(__name__).info(
-                            "VC INITIAL SNAPSHOT DONE | "
-                            "Chat: %s | Existing Users: %s",
-                            chat_id,
-                            len(participants),
-                        )
-
-                    # ------------------------------------------------
-                    # CHECK NEW USERS
-                    # ------------------------------------------------
-
-                    else:
-
-                        if process_vc_participants is not None:
-
-                            await process_vc_participants(
-                                client=app,
-                                chat_id=chat_id,
-                                participants=participants,
-                            )
-
-                            LOGGER(__name__).info(
-                                "VC PARTICIPANT PROCESS COMPLETE | "
-                                "Chat: %s | Users: %s",
-                                chat_id,
-                                len(participants),
-                            )
-
-                        else:
-
-                            LOGGER(__name__).warning(
-                                "VC PROCESS FUNCTION IS NONE | "
-                                "Chat: %s",
-                                chat_id,
-                            )
-
-                except asyncio.CancelledError:
-
-                    raise
-
-                except AttributeError as e:
-
-                    LOGGER(__name__).error(
-                        "VC API METHOD ERROR | "
-                        "Chat: %s | %s",
-                        chat_id,
-                        e,
-                        exc_info=True,
-                    )
-
-                except Exception as e:
-
-                    LOGGER(__name__).error(
-                        "VC PARTICIPANT FETCH ERROR | "
-                        "Chat: %s | %s",
-                        chat_id,
-                        e,
-                        exc_info=True,
-                    )
-
-                # ------------------------------------------------
-                # CHECK EVERY 2 SECONDS
-                # ------------------------------------------------
-
-                await asyncio.sleep(
-                    2
-                )
-
-        except asyncio.CancelledError:
-
-            LOGGER(__name__).info(
-                "VC MONITOR CANCELLED | Chat: %s",
-                chat_id,
-            )
-
-            raise
 
         except Exception as e:
 
-            LOGGER(__name__).error(
-                "VC MONITOR CRASHED | "
+            LOGGER(__name__).warning(
+                "VC PARTICIPANT EVENT REGISTRATION FAILED | "
                 "Chat: %s | %s",
                 chat_id,
                 e,
                 exc_info=True,
             )
 
-        finally:
+    except Exception as e:
 
-            # ------------------------------------------------
-            # REMOVE RUNNING STATE
-            # ------------------------------------------------
+        LOGGER(__name__).warning(
+            "VC PARTICIPANT EVENT REGISTRATION ERROR | "
+            "Chat: %s | %s",
+            chat_id,
+            e,
+            exc_info=True,
+        )
 
-            self._vc_monitor_running.discard(
-                chat_id
-            )
+    if registered:
 
-            # ------------------------------------------------
-            # REMOVE TASK
-            # ------------------------------------------------
+        self._vc_event_registered.add(
+            handler_key
+        )
 
-            self._vc_monitor_tasks.pop(
-                chat_id,
-                None,
-            )
+        return True
 
-            # ------------------------------------------------
-            # REMOVE CACHE
-            # ------------------------------------------------
+    return False
 
-            if remove_vc_cache is not None:
 
-                try:
+# ============================================================
+# VC MONITOR LOOP
+# ============================================================
 
-                    remove_vc_cache(
+async def _vc_monitor_loop(
+    self,
+    chat_id: int,
+    assistant,
+):
+
+    chat_id = int(chat_id)
+
+    initialized = False
+
+    try:
+
+        LOGGER(__name__).info(
+            "=================================================="
+        )
+
+        LOGGER(__name__).info(
+            "VC MONITOR LOOP STARTED | Chat: %s",
+            chat_id,
+        )
+
+        LOGGER(__name__).info(
+            "VC MONITOR ASSISTANT | %s",
+            type(assistant).__name__,
+        )
+
+        while chat_id in self._vc_monitor_running:
+
+            try:
+
+                # ------------------------------------------------
+                # GET CURRENT PARTICIPANTS
+                # ------------------------------------------------
+
+                participants = (
+                    await self._get_vc_participants(
+                        chat_id,
+                        assistant,
+                    )
+                )
+
+                # ------------------------------------------------
+                # DO NOT TREAT FETCH FAILURE AS EMPTY VC
+                # ------------------------------------------------
+
+                if participants is None:
+
+                    LOGGER(__name__).warning(
+                        "VC PARTICIPANT LIST UNAVAILABLE | "
+                        "Chat: %s | Retrying...",
+                        chat_id,
+                    )
+
+                    await asyncio.sleep(
+                        2
+                    )
+
+                    continue
+
+                # ------------------------------------------------
+                # INITIAL SNAPSHOT
+                # ------------------------------------------------
+
+                if not initialized:
+
+                    LOGGER(__name__).info(
+                        "VC INITIALIZING | "
+                        "Chat: %s | Participants: %s",
+                        chat_id,
+                        len(participants),
+                    )
+
+                    if initialize_vc is not None:
+
+                        await initialize_vc(
+                            client=app,
+                            chat_id=chat_id,
+                            participants=participants,
+                        )
+
+                    initialized = True
+
+                    self._vc_monitor_initialized.add(
                         chat_id
                     )
 
                     LOGGER(__name__).info(
-                        "VC CACHE REMOVED | Chat: %s",
+                        "VC INITIAL SNAPSHOT DONE | "
+                        "Chat: %s | Existing Users: %s",
                         chat_id,
+                        len(participants),
                     )
 
-                except Exception as e:
+                # ------------------------------------------------
+                # NORMAL POLLING CHECK
+                # ------------------------------------------------
 
-                    LOGGER(__name__).warning(
-                        "VC CACHE REMOVE FAILED | "
-                        "Chat: %s | %s",
-                        chat_id,
-                        e,
-                    )
+                else:
 
-            LOGGER(__name__).info(
-                "VC MONITOR CLEANED | Chat: %s",
-                chat_id,
+                    if process_vc_participants is not None:
+
+                        await process_vc_participants(
+                            client=app,
+                            chat_id=chat_id,
+                            participants=participants,
+                        )
+
+                        LOGGER(__name__).debug(
+                            "VC POLLING CHECK COMPLETE | "
+                            "Chat: %s | Users: %s",
+                            chat_id,
+                            len(participants),
+                        )
+
+            except asyncio.CancelledError:
+
+                raise
+
+            except Exception as e:
+
+                LOGGER(__name__).error(
+                    "VC MONITOR ITERATION ERROR | "
+                    "Chat: %s | %s",
+                    chat_id,
+                    e,
+                    exc_info=True,
+                )
+
+            # ----------------------------------------------------
+            # POLLING FALLBACK
+            # ----------------------------------------------------
+
+            await asyncio.sleep(
+                2
             )
 
-            LOGGER(__name__).info(
-                "=================================================="
-            )
+    except asyncio.CancelledError:
 
-    # ========================================================
-    # START VC MONITOR
-    # ========================================================
-
-    async def _start_vc_monitor(
-        self,
-        chat_id: int,
-        assistant,
-    ):
-
-        chat_id = int(chat_id)
-
-        # ----------------------------------------------------
-        # MODULE CHECK
-        # ----------------------------------------------------
-
-        if not VC_JOIN_AVAILABLE:
-
-            LOGGER(__name__).error(
-                "VC JOIN MONITOR UNAVAILABLE | "
-                "Chat: %s",
-                chat_id,
-            )
-
-            return
-
-        # ----------------------------------------------------
-        # CHECK EXISTING TASK
-        # ----------------------------------------------------
-
-        existing_task = (
-            self._vc_monitor_tasks.get(
-                chat_id
-            )
+        LOGGER(__name__).info(
+            "VC MONITOR CANCELLED | Chat: %s",
+            chat_id,
         )
 
-        if (
-            existing_task
-            and not existing_task.done()
-        ):
+        raise
 
-            LOGGER(__name__).info(
-                "VC MONITOR ALREADY RUNNING | "
-                "Chat: %s",
-                chat_id,
-            )
+    except Exception as e:
 
-            return
+        LOGGER(__name__).error(
+            "VC MONITOR CRASHED | "
+            "Chat: %s | %s",
+            chat_id,
+            e,
+            exc_info=True,
+        )
 
-        # ----------------------------------------------------
-        # REMOVE OLD CACHE
-        # ----------------------------------------------------
+    finally:
+
+        # --------------------------------------------------------
+        # REMOVE RUNNING STATE
+        # --------------------------------------------------------
+
+        self._vc_monitor_running.discard(
+            chat_id
+        )
+
+        self._vc_monitor_initialized.discard(
+            chat_id
+        )
+
+        # --------------------------------------------------------
+        # REMOVE TASK
+        # --------------------------------------------------------
+
+        self._vc_monitor_tasks.pop(
+            chat_id,
+            None,
+        )
+
+        # --------------------------------------------------------
+        # REMOVE VC CACHE
+        # --------------------------------------------------------
 
         if remove_vc_cache is not None:
 
@@ -494,36 +782,212 @@ class Call(PyTgCalls):
                     chat_id
                 )
 
-            except Exception:
-                pass
+            except Exception as e:
 
-        # ----------------------------------------------------
-        # ADD RUNNING STATE
-        # ----------------------------------------------------
-
-        self._vc_monitor_running.add(
-            chat_id
-        )
-
-        # ----------------------------------------------------
-        # CREATE TASK
-        # ----------------------------------------------------
-
-        task = asyncio.create_task(
-            self._vc_monitor_loop(
-                chat_id,
-                assistant,
-            )
-        )
-
-        self._vc_monitor_tasks[
-            chat_id
-        ] = task
+                LOGGER(__name__).warning(
+                    "VC CACHE REMOVE FAILED | "
+                    "Chat: %s | %s",
+                    chat_id,
+                    e,
+                )
 
         LOGGER(__name__).info(
-            "VC MONITOR STARTED | Chat: %s",
+            "VC MONITOR CLEANED | Chat: %s",
             chat_id,
         )
+
+        LOGGER(__name__).info(
+            "=================================================="
+        )
+
+
+# ============================================================
+# START VC MONITOR
+# ============================================================
+
+async def _start_vc_monitor(
+    self,
+    chat_id: int,
+    assistant,
+):
+
+    chat_id = int(chat_id)
+
+    if not VC_JOIN_AVAILABLE:
+
+        LOGGER(__name__).error(
+            "VC JOIN MONITOR UNAVAILABLE | "
+            "Chat: %s",
+            chat_id,
+        )
+
+        return
+
+    # --------------------------------------------------------
+    # EXISTING TASK
+    # --------------------------------------------------------
+
+    existing_task = (
+        self._vc_monitor_tasks.get(
+            chat_id
+        )
+    )
+
+    if (
+        existing_task
+        and not existing_task.done()
+    ):
+
+        LOGGER(__name__).info(
+            "VC MONITOR ALREADY RUNNING | "
+            "Chat: %s",
+            chat_id,
+        )
+
+        return
+
+    # --------------------------------------------------------
+    # CLEAN OLD STATE
+    # --------------------------------------------------------
+
+    self._vc_monitor_initialized.discard(
+        chat_id
+    )
+
+    if remove_vc_cache is not None:
+
+        try:
+
+            remove_vc_cache(
+                chat_id
+            )
+
+        except Exception:
+            pass
+
+    # --------------------------------------------------------
+    # START STATE FIRST
+    # --------------------------------------------------------
+
+    self._vc_monitor_running.add(
+        chat_id
+    )
+
+    # --------------------------------------------------------
+    # REGISTER OFFICIAL PARTICIPANT EVENT
+    # --------------------------------------------------------
+
+    event_registered = (
+        self._register_vc_participant_handler(
+            chat_id,
+            assistant,
+        )
+    )
+
+    if event_registered:
+
+        LOGGER(__name__).info(
+            "VC EVENT MONITOR ACTIVE | "
+            "Chat: %s",
+            chat_id,
+        )
+
+    else:
+
+        LOGGER(__name__).warning(
+            "VC EVENT MONITOR UNAVAILABLE | "
+            "Chat: %s | Polling fallback ACTIVE",
+            chat_id,
+        )
+
+    # --------------------------------------------------------
+    # CREATE POLLING TASK
+    # --------------------------------------------------------
+
+    task = asyncio.create_task(
+        self._vc_monitor_loop(
+            chat_id,
+            assistant,
+        )
+    )
+
+    self._vc_monitor_tasks[
+        chat_id
+    ] = task
+
+    LOGGER(__name__).info(
+        "VC MONITOR STARTED | "
+        "Chat: %s | Event=%s | Polling=True",
+        chat_id,
+        event_registered,
+    )
+
+
+# ============================================================
+# STOP VC MONITOR
+# ============================================================
+
+async def _stop_vc_monitor(
+    self,
+    chat_id: int,
+):
+
+    chat_id = int(chat_id)
+
+    self._vc_monitor_running.discard(
+        chat_id
+    )
+
+    self._vc_monitor_initialized.discard(
+        chat_id
+    )
+
+    task = self._vc_monitor_tasks.pop(
+        chat_id,
+        None,
+    )
+
+    if task and not task.done():
+
+        task.cancel()
+
+        try:
+
+            await task
+
+        except asyncio.CancelledError:
+            pass
+
+        except Exception as e:
+
+            LOGGER(__name__).warning(
+                "VC MONITOR STOP ERROR | "
+                "Chat: %s | %s",
+                chat_id,
+                e,
+            )
+
+    if remove_vc_cache is not None:
+
+        try:
+
+            remove_vc_cache(
+                chat_id
+            )
+
+        except Exception as e:
+
+            LOGGER(__name__).warning(
+                "VC CACHE REMOVE ERROR | "
+                "Chat: %s | %s",
+                chat_id,
+                e,
+            )
+
+    LOGGER(__name__).info(
+        "VC MONITOR STOPPED | Chat: %s",
+        chat_id,
+    )
 
     # ========================================================
     # STOP VC MONITOR
