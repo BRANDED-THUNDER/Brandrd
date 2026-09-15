@@ -121,7 +121,7 @@ async def _clear_(chat_id):
 # CALL CLASS
 # ============================================================
 
-class Call(PyTgCalls):
+class Call:
 
     def __init__(self):
 
