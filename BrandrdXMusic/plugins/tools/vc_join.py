@@ -476,8 +476,8 @@ def remove_vc_cache(
 
 __MODULE__ = "VC Join"
 
-__HELP__ = 
-<b>🎙️ VC Jᴏɪɴ Lᴏɢ</b>
+__HELP__ = """
+<b>VC Join Log</b>
 
 <blockquote>
 <b>#JoinVc</b>
@@ -490,3 +490,4 @@ Notifications are sent directly
 to the same group where the user
 joins the Voice Chat.
 </blockquote>
+"""
