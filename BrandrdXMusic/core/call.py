@@ -118,14 +118,24 @@ class Call(PyTgCalls):
         )
 
     def enable_vc_monitoring(self, chat_id: int):
+        """Enable VC participant monitoring for a chat."""
         self.vc_monitoring.add(int(chat_id))
 
     def disable_vc_monitoring(self, chat_id: int):
-        self.vc_monitoring.discard(int(chat_id))
-        # Remove old duplicate-suppression entries for this chat.
+        """Disable VC participant monitoring and clear its state."""
+        chat_id = int(chat_id)
+        self.vc_monitoring.discard(chat_id)
+
+        # Clear event cache for this chat.
         for key in list(self._vc_event_cache):
-            if key[0] == int(chat_id):
+            if key[0] == chat_id:
                 self._vc_event_cache.pop(key, None)
+
+        # Clear participant/call mappings belonging to this chat.
+        for call_id, mapped_chat_id in list(self._vc_call_chats.items()):
+            if mapped_chat_id == chat_id:
+                self._vc_call_chats.pop(call_id, None)
+                self._vc_participants.pop(call_id, None)
 
     def is_vc_monitoring(self, chat_id: int) -> bool:
         return int(chat_id) in self.vc_monitoring
@@ -138,52 +148,79 @@ class Call(PyTgCalls):
         return None
 
     async def _send_vc_user_event(self, client, chat_id, user_id, event):
-        cache_key = (int(chat_id), int(user_id), str(event))
-        if cache_key in self._vc_event_cache:
+        """Send a join/leave notification into the same group."""
+        chat_id = int(chat_id)
+        user_id = int(user_id)
+        event = str(event)
+
+        cache_key = (chat_id, user_id, event)
+        now = time.monotonic()
+
+        # Avoid duplicate Telegram updates for the same event.
+        last_time = self._vc_event_cache.get(cache_key)
+        if last_time is not None and now - last_time < 15:
             return
+        self._vc_event_cache[cache_key] = now
 
         try:
             user = await client.get_users(user_id)
-        except Exception as e:
-            LOGGER(__name__).warning(f"VC monitor: could not fetch user {user_id}: {e}")
-            return
 
-        self._vc_event_cache[cache_key] = True
-        first_name = escape(user.first_name or "Unknown")
-        last_name = escape(user.last_name or "")
-        full_name = f"{first_name} {last_name}".strip()
-        username = f"@{escape(user.username)}" if user.username else "Nᴏ Uѕᴇʀɴᴀᴍᴇ"
-        mention = f'<a href="tg://user?id={int(user.id)}">{full_name}</a>'
-
-        if event == "joined":
-            text = (
-                "<b>#JoinVc</b>\n\n"
-                f"<b>👤 User:</b> {username}\n"
-                f"<b>🆔 UserID:</b> <code>{int(user.id)}</code>\n"
-                "<b>🔐 Auth:</b> Member"
-            )
-        else:
-            text = (
-                "<b>#LeftVc</b>\n\n"
-                f"<b>👤 User:</b> {username}\n"
-                f"<b>🆔 UserID:</b> <code>{int(user.id)}</code>\n"
-                "<b>🔐 Auth:</b> Member"
+            username = (
+                f"@{user.username}"
+                if getattr(user, "username", None)
+                else (
+                    user.mention
+                    if getattr(user, "mention", None)
+                    else f"<a href=\"tg://user?id={user_id}\">"
+                         f"{escape(str(getattr(user, 'first_name', 'User')))}</a>"
+                )
             )
 
-        try:
+            if event == "joined":
+                text = (
+                    "<b>#JoinVc</b>\n\n"
+                    f"<b>👤 User:</b> {username}\n"
+                    f"<b>🆔 UserID:</b> <code>{user_id}</code>\n"
+                    "<b>🔐 Auth:</b> Member"
+                )
+            else:
+                text = (
+                    "<b>#LeftVc</b>\n\n"
+                    f"<b>👤 User:</b> {username}\n"
+                    f"<b>🆔 UserID:</b> <code>{user_id}</code>\n"
+                    "<b>🔐 Auth:</b> Member"
+                )
+
             await app.send_message(
-                chat_id=int(chat_id),
+                chat_id=chat_id,
                 text=text,
-                parse_mode=enums.ParseMode.HTML,
                 disable_web_page_preview=True,
             )
+
         except Exception as e:
-            LOGGER(__name__).error(f"VC monitor notification failed in {chat_id}: {e}", exc_info=True)
+            LOGGER(__name__).error(
+                f"VC monitor notification failed in {chat_id}: {e}",
+                exc_info=True,
+            )
 
     async def _vc_raw_update(self, client, update, users, chats):
+        """
+        Monitor Telegram group-call participant updates.
+
+        Important:
+        UpdateGroupCallParticipants is treated as a DELTA update.
+        We do not assume that users missing from one update have left.
+        This prevents false #LeftVc messages.
+        """
         try:
             if isinstance(update, raw.types.UpdateGroupCall):
-                self._vc_call_chats[int(update.call.id)] = utils.get_channel_id(update.chat_id)
+                try:
+                    chat_id = utils.get_channel_id(update.chat_id)
+                except Exception:
+                    chat_id = None
+
+                if chat_id:
+                    self._vc_call_chats[int(update.call.id)] = int(chat_id)
                 return
 
             if not isinstance(update, raw.types.UpdateGroupCallParticipants):
@@ -191,37 +228,49 @@ class Call(PyTgCalls):
 
             call_id = int(update.call.id)
             chat_id = self._vc_call_chats.get(call_id)
+
             if not chat_id or not self.is_vc_monitoring(chat_id):
                 return
 
-            previous = self._vc_participants.get(call_id, set())
-            current = set()
-            explicit_events = set()
+            participants = getattr(update, "participants", None) or []
 
-            for participant in update.participants:
+            # Persistent state for this call.
+            active = self._vc_participants.setdefault(call_id, set())
+
+            for participant in participants:
                 user_id = self._participant_user_id(participant)
                 if not user_id:
                     continue
 
-                if getattr(participant, "left", False):
-                    explicit_events.add(user_id)
-                    await self._send_vc_user_event(client, chat_id, user_id, "left")
-                    continue
+                left = bool(getattr(participant, "left", False))
+                just_joined = bool(getattr(participant, "just_joined", False))
 
-                current.add(user_id)
-                if getattr(participant, "just_joined", False):
-                    explicit_events.add(user_id)
-                    await self._send_vc_user_event(client, chat_id, user_id, "joined")
+                if left:
+                    was_active = user_id in active
+                    active.discard(user_id)
 
-            # If Telegram reports a participant list without the `left` flag,
-            # anything present before but missing now is considered to have left.
-            for user_id in previous - current - explicit_events:
-                await self._send_vc_user_event(client, chat_id, user_id, "left")
+                    # Telegram may send a leave update more than once.
+                    # Only notify if the user was actually tracked.
+                    if was_active:
+                        await self._send_vc_user_event(
+                            client, chat_id, user_id, "left"
+                        )
 
-            self._vc_participants[call_id] = current
+                elif just_joined:
+                    if user_id not in active:
+                        active.add(user_id)
+                        await self._send_vc_user_event(
+                            client, chat_id, user_id, "joined"
+                        )
+                else:
+                    # Keep users seen in participant updates in our state.
+                    active.add(user_id)
 
         except Exception as e:
-            LOGGER(__name__).error(f"VC raw update handler failed: {e}", exc_info=True)
+            LOGGER(__name__).error(
+                f"VC raw update handler failed: {e}",
+                exc_info=True,
+            )
 
     async def pause_stream(self, chat_id: int):
         assistant = await group_assistant(self, chat_id)
@@ -249,7 +298,9 @@ class Call(PyTgCalls):
         try:
             await _clear_(chat_id)
             await assistant.leave_group_call(chat_id)
+            self.disable_vc_monitoring(chat_id)
         except:
+            self.disable_vc_monitoring(chat_id)
             pass
 
     async def stop_stream_force(self, chat_id: int):
@@ -454,6 +505,9 @@ class Call(PyTgCalls):
                 chat_id,
                 stream,
             )
+            # Start participant monitoring for this group immediately
+            # after successfully joining its voice chat.
+            self.enable_vc_monitoring(chat_id)
         except NoActiveGroupCall:
             raise AssistantErr(_["call_8"])
         except AlreadyJoinedError:
@@ -734,6 +788,7 @@ class Call(PyTgCalls):
             if config.STRING5:
                 self.userbot5.add_handler(RawUpdateHandler(self._vc_raw_update))
             self._vc_raw_handlers_registered = True
+            LOGGER(__name__).info("VC participant raw-update monitoring handlers registered.")
 
         @self.one.on_kicked()
         @self.two.on_kicked()
