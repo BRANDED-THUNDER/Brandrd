@@ -476,7 +476,7 @@ def remove_vc_cache(
 
 __MODULE__ = "VC Join"
 
-__HELP__ = """
+__HELP__ = 
 <b>🎙️ VC Jᴏɪɴ Lᴏɢ</b>
 
 <blockquote>
