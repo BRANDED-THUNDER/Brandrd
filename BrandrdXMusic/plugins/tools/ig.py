@@ -156,7 +156,7 @@ async def download_instagram_video(client, message):
             caption=(
                 "<blockquote>"
                 "<b>🎬 Iɴsᴛᴀɢʀᴀᴍ Vɪᴅᴇᴏ</b>\n\n"
-                "Dᴏᴡɴʟᴏᴀᴅᴇᴅ Bʏ <b>BʀᴀɴᴅʀᴅX Mᴜsɪᴄ</b>"
+                "Dᴏᴡɴʟᴏᴀᴅᴇᴅ Bʏ <b>[Bʀᴀɴᴅʀᴅ Mᴜsɪᴄ](https://t.me/Systumm_music_bot)</b>"
                 "</blockquote>"
             ),
             supports_streaming=True,
