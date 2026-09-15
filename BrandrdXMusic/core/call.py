@@ -129,13 +129,6 @@ class Call(PyTgCalls):
         # VC MONITOR STATE
         # ----------------------------------------------------
 
-        # Your existing initialization code
-        self.one = PyTgCalls(self.one)
-        self.two = PyTgCalls(self.two)
-        self.three = PyTgCalls(self.three)
-        self.four = PyTgCalls(self.four)
-        self.five = PyTgCalls(self.five)
-
         # VC monitoring
         self._vc_monitor_tasks = {}
         self._vc_monitor_running = set()
