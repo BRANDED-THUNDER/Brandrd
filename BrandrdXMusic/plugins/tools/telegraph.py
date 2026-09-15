@@ -446,7 +446,6 @@ async def get_link_group(client, message):
                 "<i>Hᴏsᴛᴇᴅ ᴏɴ Gᴏғɪʟᴇ</i>"
                 "</blockquote>",
                 reply_markup=keyboard,
-                parse_mode="html",
                 disable_web_page_preview=True,
             )
 
