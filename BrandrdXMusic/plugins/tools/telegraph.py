@@ -443,7 +443,7 @@ async def get_link_group(client, message):
                 f"<code>{format_size(file_size)}</code>\n\n"
                 f"<b>🔗 Lɪɴᴋ:</b>\n"
                 f"<code>{upload_url}</code>\n\n"
-                "<i>Hᴏsᴛᴇᴅ ᴏɴ Gᴏғɪʟᴇ</i>"
+                "<i>Cʀᴇᴀᴛᴇ Bʏ [Bʀᴀɴᴅʀᴅ Mᴜsɪᴄ](https://t.me/Systumm_music_bot?startgroup)</i>"
                 "</blockquote>",
                 reply_markup=keyboard,
                 disable_web_page_preview=True,
