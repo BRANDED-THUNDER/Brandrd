@@ -56,6 +56,7 @@ from BrandrdXMusic.utils.stream.autoclear import auto_clean
 from BrandrdXMusic.utils.thumbnails import get_thumb
 from strings import get_string
 
+
 # ============================================================
 # VC JOIN MONITOR
 # ============================================================
@@ -66,16 +67,31 @@ try:
         initialize_vc,
         remove_vc_cache,
     )
+
+    VC_JOIN_AVAILABLE = True
+
+    LOGGER(__name__).info(
+        "VC Join module loaded successfully."
+    )
+
 except Exception as e:
+
     process_vc_participants = None
     initialize_vc = None
     remove_vc_cache = None
 
-    LOGGER(__name__).warning(
+    VC_JOIN_AVAILABLE = False
+
+    LOGGER(__name__).error(
         "VC Join module could not be imported: %s",
         e,
+        exc_info=True,
     )
 
+
+# ============================================================
+# GLOBALS
+# ============================================================
 
 autoend = {}
 counter = {}
@@ -83,12 +99,26 @@ counter = {}
 loop = asyncio.get_event_loop_policy().get_event_loop()
 
 
+# ============================================================
+# CLEAR CHAT
+# ============================================================
+
 async def _clear_(chat_id):
+
     db[chat_id] = []
 
-    await remove_active_video_chat(chat_id)
-    await remove_active_chat(chat_id)
+    await remove_active_video_chat(
+        chat_id
+    )
 
+    await remove_active_chat(
+        chat_id
+    )
+
+
+# ============================================================
+# CALL CLASS
+# ============================================================
 
 class Call(PyTgCalls):
 
@@ -182,7 +212,7 @@ class Call(PyTgCalls):
         )
 
     # ========================================================
-    # VC MONITOR
+    # VC MONITOR LOOP
     # ========================================================
 
     async def _vc_monitor_loop(
@@ -190,94 +220,97 @@ class Call(PyTgCalls):
         chat_id: int,
         assistant,
     ):
-        """
-        Poll VC participants and pass the current list to
-        vc_join.py.
-
-        vc_join.py handles:
-            - participant cache
-            - new-user detection
-            - #JoinVc notification
-
-        No Telegram RawUpdateHandler is used.
-        """
 
         chat_id = int(chat_id)
 
+        initialized = False
+
         try:
 
-            # ------------------------------------------------
-            # Initial participant snapshot
-            # ------------------------------------------------
-
-            try:
-                participants = await assistant.get_participants(
-                    chat_id
-                )
-
-                if initialize_vc is not None:
-
-                    await initialize_vc(
-                        client=assistant.client,
-                        chat_id=chat_id,
-                        participants=participants,
-                    )
-
-                    LOGGER(__name__).info(
-                        "VC JOIN monitor initialized | Chat: %s | Users: %s",
-                        chat_id,
-                        len(participants),
-                    )
-
-            except Exception as e:
-
-                LOGGER(__name__).warning(
-                    "VC initial participant fetch failed | Chat: %s | %s",
-                    chat_id,
-                    e,
-                )
-
-            # ------------------------------------------------
-            # Continuous participant checking
-            # ------------------------------------------------
+            LOGGER(__name__).info(
+                "VC JOIN monitor loop started | Chat: %s",
+                chat_id,
+            )
 
             while chat_id in self._vc_monitor_running:
 
                 try:
 
-                    participants = await assistant.get_participants(
-                        chat_id
+                    # ------------------------------------------------
+                    # GET CURRENT VC PARTICIPANTS
+                    # ------------------------------------------------
+
+                    participants = (
+                        await assistant.get_participants(
+                            chat_id
+                        )
                     )
 
-                    if process_vc_participants is not None:
+                    # ------------------------------------------------
+                    # INITIALIZE EXISTING USERS
+                    # ------------------------------------------------
 
-                        await process_vc_participants(
-                            client=assistant.client,
-                            chat_id=chat_id,
-                            participants=participants,
+                    if not initialized:
+
+                        if initialize_vc is not None:
+
+                            await initialize_vc(
+                                client=app,
+                                chat_id=chat_id,
+                                participants=participants,
+                            )
+
+                        initialized = True
+
+                        LOGGER(__name__).info(
+                            "VC JOIN monitor initialized | "
+                            "Chat: %s | Users: %s",
+                            chat_id,
+                            len(participants),
                         )
 
+                    # ------------------------------------------------
+                    # PROCESS NEW USERS
+                    # ------------------------------------------------
+
+                    else:
+
+                        if process_vc_participants is not None:
+
+                            await process_vc_participants(
+                                client=app,
+                                chat_id=chat_id,
+                                participants=participants,
+                            )
+
                 except asyncio.CancelledError:
+
                     raise
 
                 except Exception as e:
 
                     LOGGER(__name__).warning(
-                        "VC participant check failed | Chat: %s | %s",
+                        "VC participant check failed | "
+                        "Chat: %s | %s",
                         chat_id,
                         e,
+                        exc_info=True,
                     )
 
-                # Small polling interval.
-                # This does NOT use time.monotonic().
+                # ------------------------------------------------
+                # POLLING INTERVAL
+                # ------------------------------------------------
+
                 await asyncio.sleep(3)
 
         except asyncio.CancelledError:
 
             LOGGER(__name__).info(
-                "VC JOIN monitor stopped | Chat: %s",
+                "VC JOIN monitor cancelled | Chat: %s",
                 chat_id,
             )
+
+            raise
 
         except Exception as e:
 
@@ -290,32 +323,64 @@ class Call(PyTgCalls):
 
         finally:
 
-            self._vc_monitor_running.discard(chat_id)
+            self._vc_monitor_running.discard(
+                chat_id
+            )
 
             self._vc_monitor_tasks.pop(
                 chat_id,
                 None,
             )
 
+            if remove_vc_cache is not None:
+
+                try:
+                    remove_vc_cache(
+                        chat_id
+                    )
+                except Exception:
+                    pass
+
+            LOGGER(__name__).info(
+                "VC JOIN monitor cleaned | Chat: %s",
+                chat_id,
+            )
+
+    # ========================================================
+    # START VC MONITOR
+    # ========================================================
+
     async def _start_vc_monitor(
         self,
         chat_id: int,
         assistant,
     ):
-        """
-        Start one participant monitor per chat.
-        """
 
         chat_id = int(chat_id)
 
-        if process_vc_participants is None:
+        if not VC_JOIN_AVAILABLE:
+
             LOGGER(__name__).warning(
-                "VC Join monitor unavailable because vc_join.py "
-                "could not be imported."
+                "VC Join monitor unavailable | Chat: %s",
+                chat_id,
             )
+
             return
 
-        if chat_id in self._vc_monitor_running:
+        # ----------------------------------------------------
+        # Already running
+        # ----------------------------------------------------
+
+        existing_task = (
+            self._vc_monitor_tasks.get(
+                chat_id
+            )
+        )
+
+        if (
+            existing_task
+            and not existing_task.done()
+        ):
 
             LOGGER(__name__).debug(
                 "VC JOIN monitor already running | Chat: %s",
@@ -324,7 +389,13 @@ class Call(PyTgCalls):
 
             return
 
-        self._vc_monitor_running.add(chat_id)
+        # ----------------------------------------------------
+        # Start monitor
+        # ----------------------------------------------------
+
+        self._vc_monitor_running.add(
+            chat_id
+        )
 
         task = asyncio.create_task(
             self._vc_monitor_loop(
@@ -333,21 +404,23 @@ class Call(PyTgCalls):
             )
         )
 
-        self._vc_monitor_tasks[chat_id] = task
+        self._vc_monitor_tasks[
+            chat_id
+        ] = task
 
         LOGGER(__name__).info(
             "VC JOIN monitor started | Chat: %s",
             chat_id,
         )
 
+    # ========================================================
+    # STOP VC MONITOR
+    # ========================================================
+
     async def _stop_vc_monitor(
         self,
         chat_id: int,
     ):
-        """
-        Stop the VC participant monitor and remove
-        cached participant data.
-        """
 
         chat_id = int(chat_id)
 
@@ -367,29 +440,39 @@ class Call(PyTgCalls):
                 task.cancel()
 
                 try:
+
                     await task
+
                 except asyncio.CancelledError:
                     pass
+
                 except Exception:
                     pass
 
         if remove_vc_cache is not None:
 
             try:
-                remove_vc_cache(chat_id)
+
+                remove_vc_cache(
+                    chat_id
+                )
+
             except Exception:
                 pass
 
         LOGGER(__name__).info(
-            "VC JOIN monitor removed | Chat: %s",
+            "VC JOIN monitor stopped | Chat: %s",
             chat_id,
         )
 
     # ========================================================
-    # STREAM CONTROLS
+    # PAUSE
     # ========================================================
 
-    async def pause_stream(self, chat_id: int):
+    async def pause_stream(
+        self,
+        chat_id: int,
+    ):
 
         assistant = await group_assistant(
             self,
@@ -400,7 +483,14 @@ class Call(PyTgCalls):
             chat_id
         )
 
-    async def mute_stream(self, chat_id: int):
+    # ========================================================
+    # MUTE
+    # ========================================================
+
+    async def mute_stream(
+        self,
+        chat_id: int,
+    ):
 
         assistant = await group_assistant(
             self,
@@ -411,7 +501,14 @@ class Call(PyTgCalls):
             chat_id
         )
 
-    async def unmute_stream(self, chat_id: int):
+    # ========================================================
+    # UNMUTE
+    # ========================================================
+
+    async def unmute_stream(
+        self,
+        chat_id: int,
+    ):
 
         assistant = await group_assistant(
             self,
@@ -422,20 +519,36 @@ class Call(PyTgCalls):
             chat_id
         )
 
-    async def get_participant(self, chat_id: int):
+    # ========================================================
+    # GET PARTICIPANTS
+    # ========================================================
+
+    async def get_participant(
+        self,
+        chat_id: int,
+    ):
 
         assistant = await group_assistant(
             self,
             chat_id,
         )
 
-        participant = await assistant.get_participants(
-            chat_id
+        participant = (
+            await assistant.get_participants(
+                chat_id
+            )
         )
 
         return participant
 
-    async def resume_stream(self, chat_id: int):
+    # ========================================================
+    # RESUME
+    # ========================================================
+
+    async def resume_stream(
+        self,
+        chat_id: int,
+    ):
 
         assistant = await group_assistant(
             self,
@@ -450,7 +563,10 @@ class Call(PyTgCalls):
     # STOP STREAM
     # ========================================================
 
-    async def stop_stream(self, chat_id: int):
+    async def stop_stream(
+        self,
+        chat_id: int,
+    ):
 
         assistant = await group_assistant(
             self,
@@ -472,17 +588,30 @@ class Call(PyTgCalls):
             )
 
         except Exception:
+
             pass
 
-    async def stop_stream_force(self, chat_id: int):
+    # ========================================================
+    # FORCE STOP ALL
+    # ========================================================
+
+    async def stop_stream_force(
+        self,
+        chat_id: int,
+    ):
 
         await self._stop_vc_monitor(
             chat_id
         )
 
+        # ----------------------------------------------------
+        # ASSISTANT 1
+        # ----------------------------------------------------
+
         try:
 
             if config.STRING1:
+
                 await self.one.leave_group_call(
                     chat_id
                 )
@@ -490,9 +619,14 @@ class Call(PyTgCalls):
         except Exception:
             pass
 
+        # ----------------------------------------------------
+        # ASSISTANT 2
+        # ----------------------------------------------------
+
         try:
 
             if config.STRING2:
+
                 await self.two.leave_group_call(
                     chat_id
                 )
@@ -500,9 +634,14 @@ class Call(PyTgCalls):
         except Exception:
             pass
 
+        # ----------------------------------------------------
+        # ASSISTANT 3
+        # ----------------------------------------------------
+
         try:
 
             if config.STRING3:
+
                 await self.three.leave_group_call(
                     chat_id
                 )
@@ -510,9 +649,14 @@ class Call(PyTgCalls):
         except Exception:
             pass
 
+        # ----------------------------------------------------
+        # ASSISTANT 4
+        # ----------------------------------------------------
+
         try:
 
             if config.STRING4:
+
                 await self.four.leave_group_call(
                     chat_id
                 )
@@ -520,9 +664,14 @@ class Call(PyTgCalls):
         except Exception:
             pass
 
+        # ----------------------------------------------------
+        # ASSISTANT 5
+        # ----------------------------------------------------
+
         try:
 
             if config.STRING5:
+
                 await self.five.leave_group_call(
                     chat_id
                 )
@@ -531,14 +680,16 @@ class Call(PyTgCalls):
             pass
 
         try:
+
             await _clear_(
                 chat_id
             )
+
         except Exception:
             pass
 
     # ========================================================
-    # SPEED STREAM
+    # SPEEDUP STREAM
     # ========================================================
 
     async def speedup_stream(
@@ -566,41 +717,53 @@ class Call(PyTgCalls):
                 str(speed),
             )
 
-            if not os.path.isdir(chatdir):
-                os.makedirs(chatdir)
+            if not os.path.isdir(
+                chatdir
+            ):
+
+                os.makedirs(
+                    chatdir
+                )
 
             out = os.path.join(
                 chatdir,
                 base,
             )
 
-            if not os.path.isfile(out):
+            if not os.path.isfile(
+                out
+            ):
 
                 if str(speed) == "0.5":
                     vs = 2.0
 
-                if str(speed) == "0.75":
+                elif str(speed) == "0.75":
                     vs = 1.35
 
-                if str(speed) == "1.5":
+                elif str(speed) == "1.5":
                     vs = 0.68
 
-                if str(speed) == "2.0":
+                elif str(speed) == "2.0":
                     vs = 0.5
 
-                proc = await asyncio.create_subprocess_shell(
-                    cmd=(
-                        "ffmpeg "
-                        "-i "
-                        f"{file_path} "
-                        "-filter:v "
-                        f"setpts={vs}*PTS "
-                        "-filter:a "
-                        f"atempo={speed} "
-                        f"{out}"
-                    ),
-                    stdin=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
+                else:
+                    vs = 1.0
+
+                proc = (
+                    await asyncio.create_subprocess_shell(
+                        cmd=(
+                            "ffmpeg "
+                            "-i "
+                            f'"{file_path}" '
+                            "-filter:v "
+                            f"setpts={vs}*PTS "
+                            "-filter:a "
+                            f"atempo={speed} "
+                            f'"{out}"'
+                        ),
+                        stdin=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
                 )
 
                 await proc.communicate()
@@ -627,6 +790,7 @@ class Call(PyTgCalls):
         )
 
         stream = (
+
             MediaStream(
                 out,
                 audio_parameters=AudioQuality.HIGH,
@@ -635,7 +799,9 @@ class Call(PyTgCalls):
                     f"-ss {played} -to {duration}"
                 ),
             )
+
             if playing[0]["streamtype"] == "video"
+
             else MediaStream(
                 out,
                 audio_parameters=AudioQuality.HIGH,
@@ -725,7 +891,9 @@ class Call(PyTgCalls):
                 chat_id
             )
 
-            check.pop(0)
+            check.pop(
+                0
+            )
 
         except Exception:
             pass
@@ -749,6 +917,7 @@ class Call(PyTgCalls):
             )
 
         except Exception:
+
             pass
 
     # ========================================================
@@ -808,6 +977,7 @@ class Call(PyTgCalls):
         )
 
         stream = (
+
             MediaStream(
                 file_path,
                 audio_parameters=AudioQuality.HIGH,
@@ -816,7 +986,9 @@ class Call(PyTgCalls):
                     f"-ss {to_seek} -to {duration}"
                 ),
             )
+
             if mode == "video"
+
             else MediaStream(
                 file_path,
                 audio_parameters=AudioQuality.HIGH,
@@ -836,7 +1008,10 @@ class Call(PyTgCalls):
     # STREAM CALL
     # ========================================================
 
-    async def stream_call(self, link):
+    async def stream_call(
+        self,
+        link,
+    ):
 
         assistant = await group_assistant(
             self,
@@ -882,6 +1057,10 @@ class Call(PyTgCalls):
             language
         )
 
+        # ----------------------------------------------------
+        # VIDEO STREAM
+        # ----------------------------------------------------
+
         if video:
 
             stream = MediaStream(
@@ -890,6 +1069,10 @@ class Call(PyTgCalls):
                 video_parameters=VideoQuality.SD_480p,
             )
 
+        # ----------------------------------------------------
+        # AUDIO STREAM
+        # ----------------------------------------------------
+
         else:
 
             stream = MediaStream(
@@ -897,6 +1080,10 @@ class Call(PyTgCalls):
                 audio_parameters=AudioQuality.HIGH,
                 video_flags=MediaStream.IGNORE,
             )
+
+        # ----------------------------------------------------
+        # JOIN GROUP CALL
+        # ----------------------------------------------------
 
         try:
 
@@ -991,7 +1178,9 @@ class Call(PyTgCalls):
 
                 autoend[chat_id] = (
                     datetime.now()
-                    + timedelta(minutes=1)
+                    + timedelta(
+                        minutes=1
+                    )
                 )
 
     # ========================================================
@@ -1087,11 +1276,17 @@ class Call(PyTgCalls):
 
             user = check[0]["by"]
 
-            original_chat_id = check[0]["chat_id"]
+            original_chat_id = (
+                check[0]["chat_id"]
+            )
 
-            streamtype = check[0]["streamtype"]
+            streamtype = (
+                check[0]["streamtype"]
+            )
 
-            videoid = check[0]["vidid"]
+            videoid = (
+                check[0]["vidid"]
+            )
 
             db[chat_id][0][
                 "played"
@@ -1123,6 +1318,10 @@ class Call(PyTgCalls):
                 str(streamtype)
                 == "video"
             )
+
+            # =================================================
+            # LIVE STREAM
+            # =================================================
 
             if "live_" in queued:
 
@@ -1199,6 +1398,10 @@ class Call(PyTgCalls):
                     "markup"
                 ] = "tg"
 
+            # =================================================
+            # VIDEO DOWNLOAD
+            # =================================================
+
             elif "vid_" in queued:
 
                 mystic = await app.send_message(
@@ -1208,11 +1411,15 @@ class Call(PyTgCalls):
 
                 try:
 
-                    file_path, direct = await YouTube.download(
-                        videoid,
-                        mystic,
-                        videoid=True,
-                        video=str(streamtype) == "video",
+                    file_path, direct = (
+                        await YouTube.download(
+                            videoid,
+                            mystic,
+                            videoid=True,
+                            video=str(
+                                streamtype
+                            ) == "video",
+                        )
                     )
 
                 except Exception:
@@ -1262,7 +1469,12 @@ class Call(PyTgCalls):
                     chat_id,
                 )
 
-                await mystic.delete()
+                try:
+
+                    await mystic.delete()
+
+                except Exception:
+                    pass
 
                 run = await app.send_photo(
                     chat_id=original_chat_id,
@@ -1286,15 +1498,22 @@ class Call(PyTgCalls):
                     "markup"
                 ] = "stream"
 
+            # =================================================
+            # INDEX STREAM
+            # =================================================
+
             elif "index_" in queued:
 
                 stream = (
+
                     MediaStream(
                         videoid,
                         audio_parameters=AudioQuality.HIGH,
                         video_parameters=VideoQuality.SD_480p,
                     )
+
                     if str(streamtype) == "video"
+
                     else MediaStream(
                         videoid,
                         audio_parameters=AudioQuality.HIGH,
@@ -1340,6 +1559,10 @@ class Call(PyTgCalls):
                     "markup"
                 ] = "tg"
 
+            # =================================================
+            # TELEGRAM / SOUNDCLOUD / OTHER
+            # =================================================
+
             else:
 
                 if video:
@@ -1371,6 +1594,10 @@ class Call(PyTgCalls):
                         original_chat_id,
                         text=_["call_6"],
                     )
+
+                # ------------------------------------------------
+                # TELEGRAM
+                # ------------------------------------------------
 
                 if videoid == "telegram":
 
@@ -1405,6 +1632,10 @@ class Call(PyTgCalls):
                         "markup"
                     ] = "tg"
 
+                # ------------------------------------------------
+                # SOUNDCLOUD
+                # ------------------------------------------------
+
                 elif videoid == "soundcloud":
 
                     button = stream_markup2(
@@ -1414,7 +1645,7 @@ class Call(PyTgCalls):
 
                     run = await app.send_photo(
                         chat_id=original_chat_id,
-                        photo=config.SOUNCLOUD_IMG_URL,
+                        photo=config.SOUNDCLOUD_IMG_URL,
                         caption=_["stream_1"].format(
                             config.SUPPORT_CHAT,
                             title[:23],
@@ -1433,6 +1664,10 @@ class Call(PyTgCalls):
                     db[chat_id][0][
                         "markup"
                     ] = "tg"
+
+                # ------------------------------------------------
+                # OTHER SOURCE
+                # ------------------------------------------------
 
                 else:
 
@@ -1472,36 +1707,44 @@ class Call(PyTgCalls):
     # PING
     # ========================================================
 
-    async def ping(self):
+    async def ping(
+        self,
+    ):
 
         pings = []
 
         if config.STRING1:
+
             pings.append(
                 await self.one.ping
             )
 
         if config.STRING2:
+
             pings.append(
                 await self.two.ping
             )
 
         if config.STRING3:
+
             pings.append(
                 await self.three.ping
             )
 
         if config.STRING4:
+
             pings.append(
                 await self.four.ping
             )
 
         if config.STRING5:
+
             pings.append(
                 await self.five.ping
             )
 
         if not pings:
+
             return "0"
 
         return str(
@@ -1515,32 +1758,41 @@ class Call(PyTgCalls):
     # START
     # ========================================================
 
-    async def start(self):
+    async def start(
+        self,
+    ):
 
         LOGGER(__name__).info(
             "Starting PyTgCalls Client...\n"
         )
 
         if config.STRING1:
+
             await self.one.start()
 
         if config.STRING2:
+
             await self.two.start()
 
         if config.STRING3:
+
             await self.three.start()
 
         if config.STRING4:
+
             await self.four.start()
 
         if config.STRING5:
+
             await self.five.start()
 
     # ========================================================
     # DECORATORS
     # ========================================================
 
-    async def decorators(self):
+    async def decorators(
+        self,
+    ):
 
         @self.one.on_kicked()
         @self.two.on_kicked()
@@ -1559,6 +1811,7 @@ class Call(PyTgCalls):
         @self.three.on_left()
         @self.four.on_left()
         @self.five.on_left()
+
         async def stream_services_handler(
             _,
             chat_id: int,
@@ -1573,6 +1826,7 @@ class Call(PyTgCalls):
         @self.three.on_stream_end()
         @self.four.on_stream_end()
         @self.five.on_stream_end()
+
         async def stream_end_handler(
             client,
             update: Update,
@@ -1582,6 +1836,7 @@ class Call(PyTgCalls):
                 update,
                 StreamAudioEnded,
             ):
+
                 return
 
             await self.change_stream(
@@ -1589,5 +1844,9 @@ class Call(PyTgCalls):
                 update.chat_id,
             )
 
+
+# ============================================================
+# HOTTY INSTANCE
+# ============================================================
 
 Hotty = Call()
