@@ -18,28 +18,25 @@ LOGGER = logging.getLogger(__name__)
 # =========================================================
 
 async def search_web(query: str, limit: int = 8):
-    """
-    API-key-free web search using DuckDuckGo HTML results.
-    """
-
     encoded_query = urllib.parse.quote_plus(query)
 
-    url = (
-        "https://html.duckduckgo.com/html/"
-        f"?q={encoded_query}"
-    )
+    urls = [
+        f"https://html.duckduckgo.com/html/?q={encoded_query}",
+        f"https://lite.duckduckgo.com/lite/?q={encoded_query}",
+    ]
 
     headers = {
         "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Mozilla/5.0 (X11; Linux x86_64) "
+            "AppleWebKit/537.36 "
+            "(KHTML, like Gecko) "
             "Chrome/140.0.0.0 Safari/537.36"
         ),
-        "Accept": (
-            "text/html,application/xhtml+xml,"
-            "application/xml;q=0.9,*/*;q=0.8"
-        ),
+        "Accept": "text/html,application/xhtml+xml,"
+                  "application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.google.com/",
+        "Connection": "keep-alive",
     }
 
     timeout = aiohttp.ClientTimeout(total=20)
@@ -50,95 +47,177 @@ async def search_web(query: str, limit: int = 8):
             timeout=timeout
         ) as session:
 
-            async with session.get(
-                url,
-                allow_redirects=True
-            ) as response:
+            for url in urls:
 
-                if response.status != 200:
-                    LOGGER.error(
-                        "Search HTTP status: %s",
-                        response.status
+                try:
+                    async with session.get(
+                        url,
+                        allow_redirects=True
+                    ) as response:
+
+                        page = await response.text(
+                            errors="ignore"
+                        )
+
+                        LOGGER.info(
+                            "Search response: HTTP %s, %s bytes",
+                            response.status,
+                            len(page)
+                        )
+
+                        # 200 OR 202 can contain usable HTML
+                        if response.status not in (200, 202):
+                            continue
+
+                        soup = BeautifulSoup(
+                            page,
+                            "html.parser"
+                        )
+
+                        results = []
+                        seen = set()
+
+                        # -----------------------------
+                        # DuckDuckGo normal HTML
+                        # -----------------------------
+
+                        for result in soup.select(
+                            ".result"
+                        ):
+
+                            link_tag = result.select_one(
+                                ".result__a"
+                            )
+
+                            if not link_tag:
+                                continue
+
+                            result_url = link_tag.get(
+                                "href",
+                                ""
+                            )
+
+                            title = link_tag.get_text(
+                                " ",
+                                strip=True
+                            )
+
+                            description_tag = (
+                                result.select_one(
+                                    ".result__snippet"
+                                )
+                            )
+
+                            description = ""
+
+                            if description_tag:
+                                description = (
+                                    description_tag.get_text(
+                                        " ",
+                                        strip=True
+                                    )
+                                )
+
+                            if result_url.startswith("//"):
+                                result_url = (
+                                    "https:" + result_url
+                                )
+
+                            if not result_url.startswith(
+                                ("http://", "https://")
+                            ):
+                                continue
+
+                            if result_url in seen:
+                                continue
+
+                            seen.add(result_url)
+
+                            results.append(
+                                {
+                                    "title": title
+                                    or "Search Result",
+                                    "url": result_url,
+                                    "description":
+                                        description,
+                                }
+                            )
+
+                            if len(results) >= limit:
+                                return results
+
+                        # -----------------------------
+                        # Lite DuckDuckGo fallback
+                        # -----------------------------
+
+                        if not results:
+
+                            for link_tag in soup.select(
+                                "a.result-link"
+                            ):
+
+                                result_url = (
+                                    link_tag.get(
+                                        "href",
+                                        ""
+                                    )
+                                )
+
+                                title = (
+                                    link_tag.get_text(
+                                        " ",
+                                        strip=True
+                                    )
+                                )
+
+                                if not result_url:
+                                    continue
+
+                                if result_url.startswith("//"):
+                                    result_url = (
+                                        "https:" + result_url
+                                    )
+
+                                if not result_url.startswith(
+                                    (
+                                        "http://",
+                                        "https://"
+                                    )
+                                ):
+                                    continue
+
+                                if result_url in seen:
+                                    continue
+
+                                seen.add(result_url)
+
+                                results.append(
+                                    {
+                                        "title": title
+                                        or "Search Result",
+                                        "url": result_url,
+                                        "description": "",
+                                    }
+                                )
+
+                                if len(results) >= limit:
+                                    return results
+
+                        if results:
+                            return results
+
+                except Exception as e:
+                    LOGGER.warning(
+                        "Search endpoint failed: %s",
+                        e
                     )
-                    return []
+                    continue
 
-                page = await response.text()
-
-        soup = BeautifulSoup(page, "html.parser")
-
-        results = []
-        seen = set()
-
-        for result in soup.select(".result"):
-
-            title_tag = result.select_one(
-                ".result__title"
-            )
-
-            link_tag = result.select_one(
-                ".result__a"
-            )
-
-            description_tag = result.select_one(
-                ".result__snippet"
-            )
-
-            if not title_tag or not link_tag:
-                continue
-
-            title = title_tag.get_text(
-                " ",
-                strip=True
-            )
-
-            result_url = link_tag.get(
-                "href",
-                ""
-            )
-
-            description = ""
-
-            if description_tag:
-                description = (
-                    description_tag.get_text(
-                        " ",
-                        strip=True
-                    )
-                )
-
-            # DuckDuckGo sometimes returns redirect URLs.
-            if result_url.startswith("//"):
-                result_url = "https:" + result_url
-
-            if not result_url.startswith(
-                ("http://", "https://")
-            ):
-                continue
-
-            if result_url in seen:
-                continue
-
-            seen.add(result_url)
-
-            results.append(
-                {
-                    "title": title,
-                    "url": result_url,
-                    "description": description,
-                }
-            )
-
-            if len(results) >= limit:
-                break
-
-        return results
-
-    except asyncio.CancelledError:
-        raise
+        return []
 
     except Exception as e:
         LOGGER.exception(
-            "Web search failed: %s",
+            "Search failed: %s",
             e
         )
         return []
