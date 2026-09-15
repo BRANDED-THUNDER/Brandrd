@@ -62,6 +62,7 @@ from strings import get_string
 # ============================================================
 
 try:
+
     from BrandrdXMusic.plugins.tools.vc_join import (
         process_vc_participants,
         initialize_vc,
@@ -71,7 +72,7 @@ try:
     VC_JOIN_AVAILABLE = True
 
     LOGGER(__name__).info(
-        "VC Join module loaded successfully."
+        "VC JOIN MODULE LOADED SUCCESSFULLY"
     )
 
 except Exception as e:
@@ -83,7 +84,7 @@ except Exception as e:
     VC_JOIN_AVAILABLE = False
 
     LOGGER(__name__).error(
-        "VC Join module could not be imported: %s",
+        "VC JOIN MODULE IMPORT FAILED | %s",
         e,
         exc_info=True,
     )
@@ -211,6 +212,10 @@ class Call(PyTgCalls):
             cache_duration=100,
         )
 
+        LOGGER(__name__).info(
+            "CALL CLIENTS INITIALIZED"
+        )
+
     # ========================================================
     # VC MONITOR LOOP
     # ========================================================
@@ -228,8 +233,17 @@ class Call(PyTgCalls):
         try:
 
             LOGGER(__name__).info(
-                "VC JOIN monitor loop started | Chat: %s",
+                "=================================================="
+            )
+
+            LOGGER(__name__).info(
+                "VC MONITOR LOOP STARTED | Chat: %s",
                 chat_id,
+            )
+
+            LOGGER(__name__).info(
+                "VC MONITOR ASSISTANT | %s",
+                type(assistant).__name__,
             )
 
             while chat_id in self._vc_monitor_running:
@@ -241,13 +255,23 @@ class Call(PyTgCalls):
                     # ------------------------------------------------
 
                     participants = (
-                        await assistant.get_participants(
+                        await assistant.get_group_call_participants(
                             chat_id
                         )
                     )
 
+                    if participants is None:
+                        participants = []
+
+                    LOGGER(__name__).info(
+                        "VC PARTICIPANTS FETCHED | "
+                        "Chat: %s | Count: %s",
+                        chat_id,
+                        len(participants),
+                    )
+
                     # ------------------------------------------------
-                    # INITIALIZE EXISTING USERS
+                    # INITIAL SNAPSHOT
                     # ------------------------------------------------
 
                     if not initialized:
@@ -260,17 +284,23 @@ class Call(PyTgCalls):
                                 participants=participants,
                             )
 
+                            LOGGER(__name__).info(
+                                "VC INITIALIZE_VC EXECUTED | "
+                                "Chat: %s",
+                                chat_id,
+                            )
+
                         initialized = True
 
                         LOGGER(__name__).info(
-                            "VC JOIN monitor initialized | "
-                            "Chat: %s | Users: %s",
+                            "VC INITIAL SNAPSHOT DONE | "
+                            "Chat: %s | Existing Users: %s",
                             chat_id,
                             len(participants),
                         )
 
                     # ------------------------------------------------
-                    # PROCESS NEW USERS
+                    # CHECK NEW USERS
                     # ------------------------------------------------
 
                     else:
@@ -283,14 +313,39 @@ class Call(PyTgCalls):
                                 participants=participants,
                             )
 
+                            LOGGER(__name__).info(
+                                "VC PARTICIPANT PROCESS COMPLETE | "
+                                "Chat: %s | Users: %s",
+                                chat_id,
+                                len(participants),
+                            )
+
+                        else:
+
+                            LOGGER(__name__).warning(
+                                "VC PROCESS FUNCTION IS NONE | "
+                                "Chat: %s",
+                                chat_id,
+                            )
+
                 except asyncio.CancelledError:
 
                     raise
 
+                except AttributeError as e:
+
+                    LOGGER(__name__).error(
+                        "VC API METHOD ERROR | "
+                        "Chat: %s | %s",
+                        chat_id,
+                        e,
+                        exc_info=True,
+                    )
+
                 except Exception as e:
 
-                    LOGGER(__name__).warning(
-                        "VC participant check failed | "
+                    LOGGER(__name__).error(
+                        "VC PARTICIPANT FETCH ERROR | "
                         "Chat: %s | %s",
                         chat_id,
                         e,
@@ -298,15 +353,17 @@ class Call(PyTgCalls):
                     )
 
                 # ------------------------------------------------
-                # POLLING INTERVAL
+                # CHECK EVERY 2 SECONDS
                 # ------------------------------------------------
 
-                await asyncio.sleep(3)
+                await asyncio.sleep(
+                    2
+                )
 
         except asyncio.CancelledError:
 
             LOGGER(__name__).info(
-                "VC JOIN monitor cancelled | Chat: %s",
+                "VC MONITOR CANCELLED | Chat: %s",
                 chat_id,
             )
 
@@ -315,7 +372,8 @@ class Call(PyTgCalls):
         except Exception as e:
 
             LOGGER(__name__).error(
-                "VC JOIN monitor crashed | Chat: %s | %s",
+                "VC MONITOR CRASHED | "
+                "Chat: %s | %s",
                 chat_id,
                 e,
                 exc_info=True,
@@ -323,27 +381,56 @@ class Call(PyTgCalls):
 
         finally:
 
+            # ------------------------------------------------
+            # REMOVE RUNNING STATE
+            # ------------------------------------------------
+
             self._vc_monitor_running.discard(
                 chat_id
             )
+
+            # ------------------------------------------------
+            # REMOVE TASK
+            # ------------------------------------------------
 
             self._vc_monitor_tasks.pop(
                 chat_id,
                 None,
             )
 
+            # ------------------------------------------------
+            # REMOVE CACHE
+            # ------------------------------------------------
+
             if remove_vc_cache is not None:
 
                 try:
+
                     remove_vc_cache(
                         chat_id
                     )
-                except Exception:
-                    pass
+
+                    LOGGER(__name__).info(
+                        "VC CACHE REMOVED | Chat: %s",
+                        chat_id,
+                    )
+
+                except Exception as e:
+
+                    LOGGER(__name__).warning(
+                        "VC CACHE REMOVE FAILED | "
+                        "Chat: %s | %s",
+                        chat_id,
+                        e,
+                    )
 
             LOGGER(__name__).info(
-                "VC JOIN monitor cleaned | Chat: %s",
+                "VC MONITOR CLEANED | Chat: %s",
                 chat_id,
+            )
+
+            LOGGER(__name__).info(
+                "=================================================="
             )
 
     # ========================================================
@@ -358,17 +445,22 @@ class Call(PyTgCalls):
 
         chat_id = int(chat_id)
 
+        # ----------------------------------------------------
+        # MODULE CHECK
+        # ----------------------------------------------------
+
         if not VC_JOIN_AVAILABLE:
 
-            LOGGER(__name__).warning(
-                "VC Join monitor unavailable | Chat: %s",
+            LOGGER(__name__).error(
+                "VC JOIN MONITOR UNAVAILABLE | "
+                "Chat: %s",
                 chat_id,
             )
 
             return
 
         # ----------------------------------------------------
-        # Already running
+        # CHECK EXISTING TASK
         # ----------------------------------------------------
 
         existing_task = (
@@ -382,20 +474,40 @@ class Call(PyTgCalls):
             and not existing_task.done()
         ):
 
-            LOGGER(__name__).debug(
-                "VC JOIN monitor already running | Chat: %s",
+            LOGGER(__name__).info(
+                "VC MONITOR ALREADY RUNNING | "
+                "Chat: %s",
                 chat_id,
             )
 
             return
 
         # ----------------------------------------------------
-        # Start monitor
+        # REMOVE OLD CACHE
+        # ----------------------------------------------------
+
+        if remove_vc_cache is not None:
+
+            try:
+
+                remove_vc_cache(
+                    chat_id
+                )
+
+            except Exception:
+                pass
+
+        # ----------------------------------------------------
+        # ADD RUNNING STATE
         # ----------------------------------------------------
 
         self._vc_monitor_running.add(
             chat_id
         )
+
+        # ----------------------------------------------------
+        # CREATE TASK
+        # ----------------------------------------------------
 
         task = asyncio.create_task(
             self._vc_monitor_loop(
@@ -409,7 +521,7 @@ class Call(PyTgCalls):
         ] = task
 
         LOGGER(__name__).info(
-            "VC JOIN monitor started | Chat: %s",
+            "VC MONITOR STARTED | Chat: %s",
             chat_id,
         )
 
@@ -424,30 +536,50 @@ class Call(PyTgCalls):
 
         chat_id = int(chat_id)
 
+        # ----------------------------------------------------
+        # REMOVE RUNNING STATE
+        # ----------------------------------------------------
+
         self._vc_monitor_running.discard(
             chat_id
         )
+
+        # ----------------------------------------------------
+        # GET TASK
+        # ----------------------------------------------------
 
         task = self._vc_monitor_tasks.pop(
             chat_id,
             None,
         )
 
-        if task:
+        # ----------------------------------------------------
+        # CANCEL TASK
+        # ----------------------------------------------------
 
-            if not task.done():
+        if task and not task.done():
 
-                task.cancel()
+            task.cancel()
 
-                try:
+            try:
 
-                    await task
+                await task
 
-                except asyncio.CancelledError:
-                    pass
+            except asyncio.CancelledError:
+                pass
 
-                except Exception:
-                    pass
+            except Exception as e:
+
+                LOGGER(__name__).warning(
+                    "VC MONITOR STOP ERROR | "
+                    "Chat: %s | %s",
+                    chat_id,
+                    e,
+                )
+
+        # ----------------------------------------------------
+        # REMOVE CACHE
+        # ----------------------------------------------------
 
         if remove_vc_cache is not None:
 
@@ -457,11 +589,17 @@ class Call(PyTgCalls):
                     chat_id
                 )
 
-            except Exception:
-                pass
+            except Exception as e:
+
+                LOGGER(__name__).warning(
+                    "VC CACHE REMOVE ERROR | "
+                    "Chat: %s | %s",
+                    chat_id,
+                    e,
+                )
 
         LOGGER(__name__).info(
-            "VC JOIN monitor stopped | Chat: %s",
+            "VC MONITOR STOPPED | Chat: %s",
             chat_id,
         )
 
@@ -533,13 +671,38 @@ class Call(PyTgCalls):
             chat_id,
         )
 
-        participant = (
-            await assistant.get_participants(
-                chat_id
-            )
-        )
+        try:
 
-        return participant
+            participant = (
+                await assistant.get_group_call_participants(
+                    chat_id
+                )
+            )
+
+            if participant is None:
+
+                participant = []
+
+            LOGGER(__name__).info(
+                "GET PARTICIPANTS | "
+                "Chat: %s | Count: %s",
+                chat_id,
+                len(participant),
+            )
+
+            return participant
+
+        except Exception as e:
+
+            LOGGER(__name__).error(
+                "GET PARTICIPANTS FAILED | "
+                "Chat: %s | %s",
+                chat_id,
+                e,
+                exc_info=True,
+            )
+
+            return []
 
     # ========================================================
     # RESUME
@@ -679,6 +842,10 @@ class Call(PyTgCalls):
         except Exception:
             pass
 
+        # ----------------------------------------------------
+        # CLEAR DATABASE
+        # ----------------------------------------------------
+
         try:
 
             await _clear_(
@@ -723,7 +890,7 @@ class Call(PyTgCalls):
 
                 os.makedirs(
                     chatdir
-                )
+            )
 
             out = os.path.join(
                 chatdir,
@@ -1119,7 +1286,8 @@ class Call(PyTgCalls):
                 )
 
             LOGGER(__name__).error(
-                "join_call failed | Chat: %s | %s",
+                "JOIN CALL FAILED | "
+                "Chat: %s | %s",
                 chat_id,
                 e,
                 exc_info=True,
@@ -1164,13 +1332,27 @@ class Call(PyTgCalls):
 
             try:
 
-                users = len(
-                    await assistant.get_participants(
+                users = (
+                    await assistant.get_group_call_participants(
                         chat_id
                     )
                 )
 
-            except Exception:
+                if users is None:
+                    users = []
+
+                users = len(
+                    users
+                )
+
+            except Exception as e:
+
+                LOGGER(__name__).warning(
+                    "AUTOEND PARTICIPANT CHECK FAILED | "
+                    "Chat: %s | %s",
+                    chat_id,
+                    e,
+                )
 
                 users = 0
 
@@ -1785,6 +1967,10 @@ class Call(PyTgCalls):
         if config.STRING5:
 
             await self.five.start()
+
+        LOGGER(__name__).info(
+            "PyTgCalls Clients Started Successfully"
+        )
 
     # ========================================================
     # DECORATORS
