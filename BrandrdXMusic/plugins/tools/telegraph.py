@@ -8,127 +8,164 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from BrandrdXMusic import app
 
 
-CATBOX_URL = "https://catbox.moe/user/api.php"
+FILEIO_URL = "https://file.io"
 MAX_FILE_SIZE = 200 * 1024 * 1024  # 200 MB
 
 
 async def upload_file(file_path: str):
     """
-    Upload file to Catbox and return:
-    (True, url) on success
-    (False, error_message) on failure
+    Upload a file to file.io.
+
+    Returns:
+        (True, download_url)
+        (False, error_message)
     """
 
-    if not file_path or not os.path.exists(file_path):
-        return False, "Fɪʟᴇ ɴᴏᴛ ғᴏᴜɴᴅ."
+    if not file_path:
+        return False, "Fɪʟᴇ ᴘᴀᴛʜ ɪs ᴇᴍᴘᴛʏ."
+
+    if not os.path.exists(file_path):
+        return False, "Fɪʟᴇ ᴅᴏᴇs ɴᴏᴛ ᴇxɪsᴛ."
 
     file_size = os.path.getsize(file_path)
 
+    if file_size == 0:
+        return False, "Fɪʟᴇ ɪs ᴇᴍᴘᴛʏ."
+
     if file_size > MAX_FILE_SIZE:
-        return False, "Fɪʟᴇ ɪs ʟᴀʀɢᴇʀ ᴛʜᴀɴ 200 MB."
+        return False, (
+            f"Fɪʟᴇ ɪs ᴛᴏᴏ ʟᴀʀɢᴇ.\n"
+            f"Mᴀxɪᴍᴜᴍ sɪᴢᴇ: <code>200 MB</code>"
+        )
+
+    timeout = aiohttp.ClientTimeout(
+        total=900,
+        connect=30,
+        sock_read=900,
+    )
+
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 "
+            "(Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 "
+            "(KHTML, like Gecko) "
+            "Chrome/120.0 Safari/537.36"
+        )
+    }
 
     try:
-        timeout = aiohttp.ClientTimeout(
-            total=900,
-            connect=30,
-            sock_read=900,
-        )
+        async with aiohttp.ClientSession(
+            timeout=timeout,
+            headers=headers,
+        ) as session:
 
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 "
-                "(Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 "
-                "(KHTML, like Gecko) "
-                "Chrome/120.0 Safari/537.36"
-            )
-        }
+            with open(file_path, "rb") as file:
 
-        form = aiohttp.FormData()
+                form = aiohttp.FormData()
 
-        form.add_field(
-            "reqtype",
-            "fileupload",
-        )
-
-        # Catbox expects the actual file field.
-        with open(file_path, "rb") as file:
-            form.add_field(
-                "fileToUpload",
-                file,
-                filename=os.path.basename(file_path),
-                content_type="application/octet-stream",
-            )
-
-            async with aiohttp.ClientSession(
-                timeout=timeout,
-                headers=headers,
-            ) as session:
+                form.add_field(
+                    "file",
+                    file,
+                    filename=os.path.basename(file_path),
+                    content_type="application/octet-stream",
+                )
 
                 async with session.post(
-                    CATBOX_URL,
+                    FILEIO_URL,
                     data=form,
                 ) as response:
 
-                    result = await response.text()
+                    response_text = await response.text()
 
-                    if response.status == 200:
-                        result = result.strip()
-
-                        # Catbox normally returns the uploaded URL
-                        # as plain text.
-                        if result.startswith("http://") or result.startswith(
-                            "https://"
-                        ):
-                            return True, result
-
+                    if response.status != 200:
                         return False, (
-                            "Cᴀᴛʙᴏx ʀᴇᴛᴜʀɴᴇᴅ ᴀɴ ᴜɴᴇxᴘᴇᴄᴛᴇᴅ ʀᴇsᴘᴏɴsᴇ:\n"
-                            f"<code>{result[:1000]}</code>"
+                            f"Fɪʟᴇ.ɪᴏ ᴇʀʀᴏʀ: "
+                            f"<code>{response.status}</code>\n\n"
+                            f"<code>{response_text[:1000]}</code>"
                         )
 
-                    return False, (
-                        f"Cᴀᴛʙᴏx ᴇʀʀᴏʀ: "
-                        f"<code>{response.status}</code>\n\n"
-                        f"<code>{result[:1000]}</code>"
-                    )
+                    try:
+                        data = await response.json(
+                            content_type=None
+                        )
+                    except Exception:
+                        return False, (
+                            "Fɪʟᴇ.ɪᴏ ʀᴇᴛᴜʀɴᴇᴅ ᴀɴ ɪɴᴠᴀʟɪᴅ ʀᴇsᴘᴏɴsᴇ.\n\n"
+                            f"<code>{response_text[:1000]}</code>"
+                        )
+
+                    if not isinstance(data, dict):
+                        return False, "Iɴᴠᴀʟɪᴅ Fɪʟᴇ.ɪᴏ ʀᴇsᴘᴏɴsᴇ."
+
+                    if data.get("success") is not True:
+                        message = data.get(
+                            "message",
+                            "Fɪʟᴇ.ɪᴏ ᴜᴘʟᴏᴀᴅ ғᴀɪʟᴇᴅ.",
+                        )
+
+                        return False, (
+                            f"<code>{str(message)[:1000]}</code>"
+                        )
+
+                    download_url = data.get("link")
+
+                    if not download_url:
+                        return False, (
+                            "Fɪʟᴇ.ɪᴏ ᴅɪᴅ ɴᴏᴛ ʀᴇᴛᴜʀɴ ᴀ ᴅᴏᴡɴʟᴏᴀᴅ ʟɪɴᴋ."
+                        )
+
+                    return True, download_url
 
     except asyncio.TimeoutError:
         return False, (
-            "Cᴀᴛʙᴏx ᴜᴘʟᴏᴀᴅ ᴛɪᴍᴇᴅ ᴏᴜᴛ.\n"
+            "Fɪʟᴇ.ɪᴏ ᴜᴘʟᴏᴀᴅ ᴛɪᴍᴇᴅ ᴏᴜᴛ.\n"
             "Pʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ."
         )
 
     except aiohttp.ClientError as e:
-        print(f"Catbox Client Error: {e}")
+        print(f"File.io connection error: {e}")
+
         return False, (
-            "Fᴀɪʟᴇᴅ ᴛᴏ ᴄᴏɴɴᴇᴄᴛ ᴛᴏ Cᴀᴛʙᴏx.\n"
+            "Fᴀɪʟᴇᴅ ᴛᴏ ᴄᴏɴɴᴇᴄᴛ ᴛᴏ Fɪʟᴇ.ɪᴏ.\n\n"
             f"<code>{str(e)[:500]}</code>"
         )
 
     except Exception as e:
-        print(f"Catbox Upload Error: {e}")
+        print(f"File.io upload error: {e}")
+
         return False, (
-            "Uɴᴋɴᴏᴡɴ Cᴀᴛʙᴏx ᴇʀʀᴏʀ.\n"
+            "Uɴᴋɴᴏᴡɴ Uᴘʟᴏᴀᴅ Eʀʀᴏʀ.\n\n"
             f"<code>{str(e)[:500]}</code>"
         )
 
 
-@app.on_message(filters.command(["tgm", "tgt", "telegraph", "tl"]))
+@app.on_message(
+    filters.command(
+        ["tgm", "tgt", "telegraph", "tl"]
+    )
+)
 async def get_link_group(client, message):
 
-    if not message.reply_to_message:
+    media = message.reply_to_message
+
+    # -------------------------
+    # CHECK REPLY
+    # -------------------------
+
+    if not media:
         return await message.reply_text(
             "<blockquote>"
-            "<b>❌ Pʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴍᴇᴅɪᴀ ғɪʟᴇ.</b>\n\n"
+            "<b>❌ Rᴇᴘʟʏ Tᴏ A Mᴇᴅɪᴀ Fɪʟᴇ</b>\n\n"
             "Rᴇᴘʟʏ ᴛᴏ ᴀ ᴘʜᴏᴛᴏ, ᴠɪᴅᴇᴏ, ᴅᴏᴄᴜᴍᴇɴᴛ, "
             "ᴀᴜᴅɪᴏ ᴏʀ ᴀɴɪᴍᴀᴛɪᴏɴ ᴡɪᴛʜ <code>/tgm</code>."
             "</blockquote>",
         )
 
-    media = message.reply_to_message
+    # -------------------------
+    # DETECT MEDIA
+    # -------------------------
 
-    # Find media file size
     file_size = 0
 
     if media.photo:
@@ -140,40 +177,53 @@ async def get_link_group(client, message):
     elif media.document:
         file_size = media.document.file_size or 0
 
-    elif media.animation:
-        file_size = media.animation.file_size or 0
-
     elif media.audio:
         file_size = media.audio.file_size or 0
+
+    elif media.animation:
+        file_size = media.animation.file_size or 0
 
     elif media.voice:
         file_size = media.voice.file_size or 0
 
+    elif media.video_note:
+        file_size = media.video_note.file_size or 0
+
     else:
         return await message.reply_text(
             "<blockquote>"
-            "<b>❌ Uɴsᴜᴘᴘᴏʀᴛᴇᴅ Mᴇᴅɪᴀ</b>\n\n"
+            "<b>❌ Uɴsᴜᴘᴘᴏʀᴛᴇᴅ Fɪʟᴇ</b>\n\n"
             "Pʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴘʜᴏᴛᴏ, ᴠɪᴅᴇᴏ, "
             "ᴅᴏᴄᴜᴍᴇɴᴛ, ᴀᴜᴅɪᴏ ᴏʀ ᴀɴɪᴍᴀᴛɪᴏɴ."
             "</blockquote>",
         )
 
-    # 200 MB limit
+    # -------------------------
+    # SIZE CHECK
+    # -------------------------
+
     if file_size > MAX_FILE_SIZE:
+
         size_mb = file_size / (1024 * 1024)
 
         return await message.reply_text(
             "<blockquote>"
             "<b>❌ Fɪʟᴇ Tᴏᴏ Lᴀʀɢᴇ</b>\n\n"
-            f"Fɪʟᴇ Sɪᴢᴇ: <code>{size_mb:.2f} MB</code>\n"
-            "Mᴀxɪᴍᴜᴍ Sɪᴢᴇ: <code>200 MB</code>"
+            f"<b>Fɪʟᴇ Sɪᴢᴇ:</b> "
+            f"<code>{size_mb:.2f} MB</code>\n"
+            f"<b>Mᴀxɪᴍᴜᴍ:</b> "
+            f"<code>200 MB</code>"
             "</blockquote>",
         )
 
-    text = await message.reply_text(
+    # -------------------------
+    # STATUS MESSAGE
+    # -------------------------
+
+    status = await message.reply_text(
         "<blockquote>"
         "<b>📥 Dᴏᴡɴʟᴏᴀᴅɪɴɢ Fɪʟᴇ...</b>\n\n"
-        "Pʟᴇᴀsᴇ Wᴀɪᴛ."
+        "Pʟᴇᴀsᴇ Wᴀɪᴛ..."
         "</blockquote>",
     )
 
@@ -182,29 +232,30 @@ async def get_link_group(client, message):
     try:
 
         # -------------------------
-        # DOWNLOAD FROM TELEGRAM
+        # TELEGRAM DOWNLOAD
         # -------------------------
 
         last_update = 0
 
         async def progress(current, total):
+
             nonlocal last_update
 
             if not total:
                 return
 
-            percent = current * 100 / total
-
-            # Avoid editing Telegram message too frequently.
             now = asyncio.get_running_loop().time()
 
+            # Update message every 2 seconds
             if now - last_update < 2:
                 return
 
             last_update = now
 
+            percent = (current / total) * 100
+
             try:
-                await text.edit_text(
+                await status.edit_text(
                     "<blockquote>"
                     "<b>📥 Dᴏᴡɴʟᴏᴀᴅɪɴɢ Fɪʟᴇ...</b>\n\n"
                     f"<b>Pʀᴏɢʀᴇss:</b> "
@@ -214,25 +265,34 @@ async def get_link_group(client, message):
             except Exception:
                 pass
 
-        local_path = await message.reply_to_message.download(
+        local_path = await media.download(
             progress=progress
         )
 
-        if not local_path or not os.path.exists(local_path):
-            raise Exception("Telegram download failed.")
+        if not local_path:
+            raise Exception(
+                "Telegram did not return a file path."
+            )
+
+        if not os.path.exists(local_path):
+            raise Exception(
+                "Downloaded file does not exist."
+            )
 
         # -------------------------
-        # CATBOX UPLOAD
+        # UPLOAD TO FILE.IO
         # -------------------------
 
-        await text.edit_text(
+        await status.edit_text(
             "<blockquote>"
-            "<b>📤 Uᴘʟᴏᴀᴅɪɴɢ Tᴏ Cᴀᴛʙᴏx...</b>\n\n"
-            "Tʜɪs ᴍᴀʏ ᴛᴀᴋᴇ sᴏᴍᴇ ᴛɪᴍᴇ ғᴏʀ ʟᴀʀɢᴇ ғɪʟᴇs."
+            "<b>📤 Uᴘʟᴏᴀᴅɪɴɢ Tᴏ Fɪʟᴇ.ɪᴏ...</b>\n\n"
+            "Tʜɪs ᴄᴀɴ ᴛᴀᴋᴇ sᴏᴍᴇ ᴛɪᴍᴇ ғᴏʀ ʟᴀʀɢᴇ ғɪʟᴇs."
             "</blockquote>",
         )
 
-        success, result = await upload_file(local_path)
+        success, result = await upload_file(
+            local_path
+        )
 
         # -------------------------
         # SUCCESS
@@ -240,7 +300,7 @@ async def get_link_group(client, message):
 
         if success:
 
-            upload_url = result.strip()
+            upload_url = result
 
             buttons = InlineKeyboardMarkup(
                 [
@@ -253,23 +313,24 @@ async def get_link_group(client, message):
                 ]
             )
 
-            await text.edit_text(
+            await status.edit_text(
                 "<blockquote>"
                 "<b>✅ Uᴘʟᴏᴀᴅ Sᴜᴄᴄᴇssғᴜʟ</b>\n\n"
-                f"<b>🔗 Lɪɴᴋ:</b>\n"
-                f"<code>{upload_url}</code>"
+                f"<b>🔗 Dᴏᴡɴʟᴏᴀᴅ Lɪɴᴋ:</b>\n"
+                f"<code>{upload_url}</code>\n\n"
+                "<i>⚠️ Fɪʟᴇ.ɪᴏ ʟɪɴᴋs ᴍᴀʏ ᴇxᴘɪʀᴇ.</i>"
                 "</blockquote>",
                 reply_markup=buttons,
                 disable_web_page_preview=True,
             )
 
         # -------------------------
-        # ERROR
+        # UPLOAD FAILED
         # -------------------------
 
         else:
 
-            await text.edit_text(
+            await status.edit_text(
                 "<blockquote>"
                 "<b>❌ Uᴘʟᴏᴀᴅ Fᴀɪʟᴇᴅ</b>\n\n"
                 f"<b>Rᴇᴀsᴏɴ:</b>\n"
@@ -279,13 +340,15 @@ async def get_link_group(client, message):
 
     except Exception as e:
 
-        print(f"Telegram/Catbox Error: {e}")
+        print(
+            f"TGM Plugin Error: {type(e).__name__}: {e}"
+        )
 
         try:
-            await text.edit_text(
+            await status.edit_text(
                 "<blockquote>"
-                "<b>❌ Fɪʟᴇ Uᴘʟᴏᴀᴅ Fᴀɪʟᴇᴅ</b>\n\n"
-                f"<b>Rᴇᴀsᴏɴ:</b>\n"
+                "<b>❌ Pʀᴏᴄᴇssɪɴɢ Fᴀɪʟᴇᴅ</b>\n\n"
+                f"<b>Eʀʀᴏʀ:</b>\n"
                 f"<code>{str(e)[:1000]}</code>"
                 "</blockquote>",
             )
@@ -295,41 +358,47 @@ async def get_link_group(client, message):
     finally:
 
         # -------------------------
-        # CLEAN TEMP FILE
+        # DELETE TEMP FILE
         # -------------------------
 
-        if local_path and os.path.exists(local_path):
+        if local_path:
+
             try:
-                os.remove(local_path)
+
+                if os.path.exists(local_path):
+                    os.remove(local_path)
+
             except Exception as e:
-                print(f"File cleanup error: {e}")
+                print(
+                    f"Temporary file cleanup error: {e}"
+                )
 
 
 __MODULE__ = "Tᴇʟᴇɢʀᴀᴘʜ"
 
 __HELP__ = """
-<b>📤 Tᴇʟᴇɢʀᴀᴘʜ / Cᴀᴛʙᴏx Uᴘʟᴏᴀᴅᴇʀ</b>
+<b>📤 Tᴇʟᴇɢʀᴀᴘʜ / Fɪʟᴇ Uᴘʟᴏᴀᴅᴇʀ</b>
 
 <blockquote>
 <b>Cᴏᴍᴍᴀɴᴅs:</b>
 
-• <code>/tgm</code> - Uᴘʟᴏᴀᴅ Mᴇᴅɪᴀ
-• <code>/tgt</code> - Uᴘʟᴏᴀᴅ Mᴇᴅɪᴀ
-• <code>/telegraph</code> - Uᴘʟᴏᴀᴅ Mᴇᴅɪᴀ
-• <code>/tl</code> - Uᴘʟᴏᴀᴅ Mᴇᴅɪᴀ
+• <code>/tgm</code>
+• <code>/tgt</code>
+• <code>/telegraph</code>
+• <code>/tl</code>
 
 <b>Hᴏᴡ Tᴏ Uѕᴇ:</b>
 
-Rᴇᴘʟʏ ᴛᴏ ᴀ:
-• Pʜᴏᴛᴏ
-• Vɪᴅᴇᴏ
-• Dᴏᴄᴜᴍᴇɴᴛ
-• Aᴜᴅɪᴏ
-• Aɴɪᴍᴀᴛɪᴏɴ
-• Vᴏɪᴄᴇ
+Rᴇᴘʟʏ ᴛᴏ ᴀ ᴘʜᴏᴛᴏ, ᴠɪᴅᴇᴏ,
+ᴅᴏᴄᴜᴍᴇɴᴛ, ᴀᴜᴅɪᴏ,
+ᴀɴɪᴍᴀᴛɪᴏɴ ᴏʀ ᴠᴏɪᴄᴇ
 
-Tʜᴇɴ sᴇɴᴅ <code>/tgm</code>.
+Tʜᴇɴ sᴇɴᴅ:
 
-<b>Mᴀxɪᴍᴜᴍ Fɪʟᴇ Sɪᴢᴇ:</b> <code>200 MB</code>
+<code>/tgm</code>
+
+<b>Mᴀxɪᴍᴜᴍ:</b> <code>200 MB</code>
+
+<b>Hᴏsᴛ:</b> Fɪʟᴇ.ɪᴏ
 </blockquote>
 """
