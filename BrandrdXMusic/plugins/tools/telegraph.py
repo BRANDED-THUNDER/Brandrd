@@ -8,18 +8,43 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from BrandrdXMusic import app
 
 
-FILEIO_URL = "https://file.io"
+# ============================================================
+# CONFIG
+# ============================================================
+
+GOFILE_UPLOAD_URL = "https://upload.gofile.io/uploadfile"
+
+# Change this if you want a lower limit.
+# Gofile itself does not require this exact 200 MB limit,
+# but keeping a limit prevents huge Telegram downloads.
 MAX_FILE_SIZE = 200 * 1024 * 1024  # 200 MB
 
 
-async def upload_file(file_path: str):
-    """
-    Upload a file to file.io.
+# ============================================================
+# FORMAT SIZE
+# ============================================================
 
-    Returns:
-        (True, download_url)
-        (False, error_message)
-    """
+def format_size(size):
+    if not size:
+        return "0 B"
+
+    if size < 1024:
+        return f"{size} B"
+
+    if size < 1024 * 1024:
+        return f"{size / 1024:.2f} KB"
+
+    if size < 1024 * 1024 * 1024:
+        return f"{size / (1024 * 1024):.2f} MB"
+
+    return f"{size / (1024 * 1024 * 1024):.2f} GB"
+
+
+# ============================================================
+# GOFILE UPLOADER
+# ============================================================
+
+async def upload_file(file_path):
 
     if not file_path:
         return False, "Fɪʟᴇ ᴘᴀᴛʜ ɪs ᴇᴍᴘᴛʏ."
@@ -29,19 +54,21 @@ async def upload_file(file_path: str):
 
     file_size = os.path.getsize(file_path)
 
-    if file_size == 0:
+    if file_size <= 0:
         return False, "Fɪʟᴇ ɪs ᴇᴍᴘᴛʏ."
 
     if file_size > MAX_FILE_SIZE:
         return False, (
             f"Fɪʟᴇ ɪs ᴛᴏᴏ ʟᴀʀɢᴇ.\n"
-            f"Mᴀxɪᴍᴜᴍ sɪᴢᴇ: <code>200 MB</code>"
+            f"Sɪᴢᴇ: <code>{format_size(file_size)}</code>\n"
+            f"Mᴀxɪᴍᴜᴍ: <code>{format_size(MAX_FILE_SIZE)}</code>"
         )
 
     timeout = aiohttp.ClientTimeout(
-        total=900,
-        connect=30,
-        sock_read=900,
+        total=1800,
+        connect=60,
+        sock_connect=60,
+        sock_read=1800,
     )
 
     headers = {
@@ -50,11 +77,12 @@ async def upload_file(file_path: str):
             "(Windows NT 10.0; Win64; x64) "
             "AppleWebKit/537.36 "
             "(KHTML, like Gecko) "
-            "Chrome/120.0 Safari/537.36"
+            "Chrome/140.0 Safari/537.36"
         )
     }
 
     try:
+
         async with aiohttp.ClientSession(
             timeout=timeout,
             headers=headers,
@@ -72,73 +100,154 @@ async def upload_file(file_path: str):
                 )
 
                 async with session.post(
-                    FILEIO_URL,
+                    GOFILE_UPLOAD_URL,
                     data=form,
                 ) as response:
 
                     response_text = await response.text()
 
+                    print(
+                        f"Gofile HTTP Status: {response.status}"
+                    )
+
+                    print(
+                        f"Gofile Response: "
+                        f"{response_text[:2000]}"
+                    )
+
                     if response.status != 200:
+
                         return False, (
-                            f"Fɪʟᴇ.ɪᴏ ᴇʀʀᴏʀ: "
+                            f"Gᴏғɪʟᴇ Eʀʀᴏʀ: "
                             f"<code>{response.status}</code>\n\n"
                             f"<code>{response_text[:1000]}</code>"
                         )
 
+                    # Try JSON response
                     try:
                         data = await response.json(
                             content_type=None
                         )
+
                     except Exception:
+
                         return False, (
-                            "Fɪʟᴇ.ɪᴏ ʀᴇᴛᴜʀɴᴇᴅ ᴀɴ ɪɴᴠᴀʟɪᴅ ʀᴇsᴘᴏɴsᴇ.\n\n"
+                            "Gᴏғɪʟᴇ ʀᴇᴛᴜʀɴᴇᴅ ᴀɴ "
+                            "ɪɴᴠᴀʟɪᴅ ʀᴇsᴘᴏɴsᴇ.\n\n"
                             f"<code>{response_text[:1000]}</code>"
                         )
 
                     if not isinstance(data, dict):
-                        return False, "Iɴᴠᴀʟɪᴅ Fɪʟᴇ.ɪᴏ ʀᴇsᴘᴏɴsᴇ."
 
-                    if data.get("success") is not True:
-                        message = data.get(
-                            "message",
-                            "Fɪʟᴇ.ɪᴏ ᴜᴘʟᴏᴀᴅ ғᴀɪʟᴇᴅ.",
+                        return False, (
+                            "Gᴏғɪʟᴇ ʀᴇᴛᴜʀɴᴇᴅ ᴀɴ "
+                            "ᴜɴᴋɴᴏᴡɴ ʀᴇsᴘᴏɴsᴇ."
+                        )
+
+                    print(f"Gofile JSON: {data}")
+
+                    # ------------------------------------------------
+                    # Gofile normally returns:
+                    #
+                    # {
+                    #   "status": "ok",
+                    #   "data": {
+                    #       "downloadPage": "...",
+                    #       "guestToken": "...",
+                    #       "parentFolder": "...",
+                    #       ...
+                    #   }
+                    # }
+                    # ------------------------------------------------
+
+                    status = data.get("status")
+
+                    if status != "ok":
+
+                        message = (
+                            data.get("message")
+                            or data.get("error")
+                            or str(data)
                         )
 
                         return False, (
+                            "Gᴏғɪʟᴇ Uᴘʟᴏᴀᴅ Fᴀɪʟᴇᴅ.\n\n"
                             f"<code>{str(message)[:1000]}</code>"
                         )
 
-                    download_url = data.get("link")
+                    result = data.get("data")
 
-                    if not download_url:
+                    if not isinstance(result, dict):
+
                         return False, (
-                            "Fɪʟᴇ.ɪᴏ ᴅɪᴅ ɴᴏᴛ ʀᴇᴛᴜʀɴ ᴀ ᴅᴏᴡɴʟᴏᴀᴅ ʟɪɴᴋ."
+                            "Gᴏғɪʟᴇ ᴅɪᴅ ɴᴏᴛ ʀᴇᴛᴜʀɴ "
+                            "ᴠᴀʟɪᴅ ғɪʟᴇ ᴅᴀᴛᴀ."
                         )
 
-                    return True, download_url
+                    # Download page
+                    download_page = (
+                        result.get("downloadPage")
+                        or result.get("downloadpage")
+                        or result.get("link")
+                    )
+
+                    # Some Gofile responses may provide a direct link.
+                    direct_link = (
+                        result.get("directLink")
+                        or result.get("directlink")
+                        or result.get("downloadUrl")
+                        or result.get("downloadURL")
+                    )
+
+                    final_url = (
+                        direct_link
+                        or download_page
+                    )
+
+                    if not final_url:
+
+                        return False, (
+                            "Gᴏғɪʟᴇ ᴜᴘʟᴏᴀᴅᴇᴅ ᴛʜᴇ ғɪʟᴇ "
+                            "ʙᴜᴛ ɴᴏ ᴅᴏᴡɴʟᴏᴀᴅ ʟɪɴᴋ ᴡᴀs ғᴏᴜɴᴅ.\n\n"
+                            f"<code>{str(result)[:1500]}</code>"
+                        )
+
+                    return True, final_url
 
     except asyncio.TimeoutError:
+
         return False, (
-            "Fɪʟᴇ.ɪᴏ ᴜᴘʟᴏᴀᴅ ᴛɪᴍᴇᴅ ᴏᴜᴛ.\n"
+            "Gᴏғɪʟᴇ ᴜᴘʟᴏᴀᴅ ᴛɪᴍᴇᴅ ᴏᴜᴛ.\n\n"
             "Pʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ."
         )
 
     except aiohttp.ClientError as e:
-        print(f"File.io connection error: {e}")
+
+        print(
+            f"Gofile Client Error: {type(e).__name__}: {e}"
+        )
 
         return False, (
-            "Fᴀɪʟᴇᴅ ᴛᴏ ᴄᴏɴɴᴇᴄᴛ ᴛᴏ Fɪʟᴇ.ɪᴏ.\n\n"
-            f"<code>{str(e)[:500]}</code>"
+            "Fᴀɪʟᴇᴅ ᴛᴏ ᴄᴏɴɴᴇᴄᴛ ᴛᴏ Gᴏғɪʟᴇ.\n\n"
+            f"<code>{str(e)[:1000]}</code>"
         )
 
     except Exception as e:
-        print(f"File.io upload error: {e}")
 
-        return False, (
-            "Uɴᴋɴᴏᴡɴ Uᴘʟᴏᴀᴅ Eʀʀᴏʀ.\n\n"
-            f"<code>{str(e)[:500]}</code>"
+        print(
+            f"Gofile Upload Error: "
+            f"{type(e).__name__}: {e}"
         )
 
+        return False, (
+            "Gᴏғɪʟᴇ Uᴘʟᴏᴀᴅ Eʀʀᴏʀ.\n\n"
+            f"<code>{str(e)[:1000]}</code>"
+        )
+
+
+# ============================================================
+# /TGM COMMAND
+# ============================================================
 
 @app.on_message(
     filters.command(
@@ -149,81 +258,89 @@ async def get_link_group(client, message):
 
     media = message.reply_to_message
 
-    # -------------------------
+    # ========================================================
     # CHECK REPLY
-    # -------------------------
+    # ========================================================
 
     if not media:
+
         return await message.reply_text(
             "<blockquote>"
             "<b>❌ Rᴇᴘʟʏ Tᴏ A Mᴇᴅɪᴀ Fɪʟᴇ</b>\n\n"
-            "Rᴇᴘʟʏ ᴛᴏ ᴀ ᴘʜᴏᴛᴏ, ᴠɪᴅᴇᴏ, ᴅᴏᴄᴜᴍᴇɴᴛ, "
-            "ᴀᴜᴅɪᴏ ᴏʀ ᴀɴɪᴍᴀᴛɪᴏɴ ᴡɪᴛʜ <code>/tgm</code>."
+            "Rᴇᴘʟʏ ᴛᴏ ᴀ ᴘʜᴏᴛᴏ, ᴠɪᴅᴇᴏ, "
+            "ᴅᴏᴄᴜᴍᴇɴᴛ, ᴀᴜᴅɪᴏ ᴏʀ ᴀɴɪᴍᴀᴛɪᴏɴ "
+            "ᴡɪᴛʜ <code>/tgm</code>."
             "</blockquote>",
         )
 
-    # -------------------------
-    # DETECT MEDIA
-    # -------------------------
+    # ========================================================
+    # DETECT FILE
+    # ========================================================
 
     file_size = 0
 
     if media.photo:
+
         file_size = media.photo.file_size or 0
 
     elif media.video:
+
         file_size = media.video.file_size or 0
 
     elif media.document:
+
         file_size = media.document.file_size or 0
 
     elif media.audio:
+
         file_size = media.audio.file_size or 0
 
     elif media.animation:
+
         file_size = media.animation.file_size or 0
 
     elif media.voice:
+
         file_size = media.voice.file_size or 0
 
     elif media.video_note:
+
         file_size = media.video_note.file_size or 0
 
     else:
+
         return await message.reply_text(
             "<blockquote>"
-            "<b>❌ Uɴsᴜᴘᴘᴏʀᴛᴇᴅ Fɪʟᴇ</b>\n\n"
+            "<b>❌ Uɴsᴜᴘᴘᴏʀᴛᴇᴅ Mᴇᴅɪᴀ</b>\n\n"
             "Pʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴘʜᴏᴛᴏ, ᴠɪᴅᴇᴏ, "
             "ᴅᴏᴄᴜᴍᴇɴᴛ, ᴀᴜᴅɪᴏ ᴏʀ ᴀɴɪᴍᴀᴛɪᴏɴ."
             "</blockquote>",
         )
 
-    # -------------------------
+    # ========================================================
     # SIZE CHECK
-    # -------------------------
+    # ========================================================
 
     if file_size > MAX_FILE_SIZE:
-
-        size_mb = file_size / (1024 * 1024)
 
         return await message.reply_text(
             "<blockquote>"
             "<b>❌ Fɪʟᴇ Tᴏᴏ Lᴀʀɢᴇ</b>\n\n"
-            f"<b>Fɪʟᴇ Sɪᴢᴇ:</b> "
-            f"<code>{size_mb:.2f} MB</code>\n"
-            f"<b>Mᴀxɪᴍᴜᴍ:</b> "
-            f"<code>200 MB</code>"
+            f"<b>Fɪʟᴇ:</b> "
+            f"<code>{format_size(file_size)}</code>\n"
+            f"<b>Lɪᴍɪᴛ:</b> "
+            f"<code>{format_size(MAX_FILE_SIZE)}</code>"
             "</blockquote>",
         )
 
-    # -------------------------
-    # STATUS MESSAGE
-    # -------------------------
+    # ========================================================
+    # STATUS
+    # ========================================================
 
     status = await message.reply_text(
         "<blockquote>"
         "<b>📥 Dᴏᴡɴʟᴏᴀᴅɪɴɢ Fɪʟᴇ...</b>\n\n"
-        "Pʟᴇᴀsᴇ Wᴀɪᴛ..."
+        "<i>Pʟᴇᴀsᴇ Wᴀɪᴛ...</i>"
         "</blockquote>",
     )
 
@@ -231,9 +348,9 @@ async def get_link_group(client, message):
 
     try:
 
-        # -------------------------
-        # TELEGRAM DOWNLOAD
-        # -------------------------
+        # ====================================================
+        # DOWNLOAD FROM TELEGRAM
+        # ====================================================
 
         last_update = 0
 
@@ -246,22 +363,26 @@ async def get_link_group(client, message):
 
             now = asyncio.get_running_loop().time()
 
-            # Update message every 2 seconds
             if now - last_update < 2:
                 return
 
             last_update = now
 
-            percent = (current / total) * 100
+            percent = current * 100 / total
 
             try:
+
                 await status.edit_text(
                     "<blockquote>"
-                    "<b>📥 Dᴏᴡɴʟᴏᴀᴅɪɴɢ Fɪʟᴇ...</b>\n\n"
+                    "<b>📥 Dᴏᴡɴʟᴏᴀᴅɪɴɢ...</b>\n\n"
                     f"<b>Pʀᴏɢʀᴇss:</b> "
-                    f"<code>{percent:.1f}%</code>"
+                    f"<code>{percent:.1f}%</code>\n"
+                    f"<b>Sɪᴢᴇ:</b> "
+                    f"<code>{format_size(current)} / "
+                    f"{format_size(total)}</code>"
                     "</blockquote>",
                 )
+
             except Exception:
                 pass
 
@@ -276,17 +397,19 @@ async def get_link_group(client, message):
 
         if not os.path.exists(local_path):
             raise Exception(
-                "Downloaded file does not exist."
+                "Downloaded file was not found."
             )
 
-        # -------------------------
-        # UPLOAD TO FILE.IO
-        # -------------------------
+        # ====================================================
+        # UPLOAD
+        # ====================================================
 
         await status.edit_text(
             "<blockquote>"
-            "<b>📤 Uᴘʟᴏᴀᴅɪɴɢ Tᴏ Fɪʟᴇ.ɪᴏ...</b>\n\n"
-            "Tʜɪs ᴄᴀɴ ᴛᴀᴋᴇ sᴏᴍᴇ ᴛɪᴍᴇ ғᴏʀ ʟᴀʀɢᴇ ғɪʟᴇs."
+            "<b>📤 Uᴘʟᴏᴀᴅɪɴɢ Tᴏ Gᴏғɪʟᴇ...</b>\n\n"
+            f"<b>Fɪʟᴇ:</b> "
+            f"<code>{format_size(os.path.getsize(local_path))}</code>\n\n"
+            "<i>Dᴏ ɴᴏᴛ sᴇɴᴅ ᴀɴᴏᴛʜᴇʀ ᴄᴏᴍᴍᴀɴᴅ ᴜɴᴛɪʟ ᴜᴘʟᴏᴀᴅ ɪs ғɪɴɪsʜᴇᴅ.</i>"
             "</blockquote>",
         )
 
@@ -294,15 +417,15 @@ async def get_link_group(client, message):
             local_path
         )
 
-        # -------------------------
+        # ====================================================
         # SUCCESS
-        # -------------------------
+        # ====================================================
 
         if success:
 
-            upload_url = result
+            upload_url = result.strip()
 
-            buttons = InlineKeyboardMarkup(
+            keyboard = InlineKeyboardMarkup(
                 [
                     [
                         InlineKeyboardButton(
@@ -316,17 +439,20 @@ async def get_link_group(client, message):
             await status.edit_text(
                 "<blockquote>"
                 "<b>✅ Uᴘʟᴏᴀᴅ Sᴜᴄᴄᴇssғᴜʟ</b>\n\n"
-                f"<b>🔗 Dᴏᴡɴʟᴏᴀᴅ Lɪɴᴋ:</b>\n"
+                f"<b>📦 Fɪʟᴇ Sɪᴢᴇ:</b> "
+                f"<code>{format_size(file_size)}</code>\n\n"
+                f"<b>🔗 Lɪɴᴋ:</b>\n"
                 f"<code>{upload_url}</code>\n\n"
-                "<i>⚠️ Fɪʟᴇ.ɪᴏ ʟɪɴᴋs ᴍᴀʏ ᴇxᴘɪʀᴇ.</i>"
+                "<i>Hᴏsᴛᴇᴅ ᴏɴ Gᴏғɪʟᴇ</i>"
                 "</blockquote>",
-                reply_markup=buttons,
+                reply_markup=keyboard,
+                parse_mode="html",
                 disable_web_page_preview=True,
             )
 
-        # -------------------------
-        # UPLOAD FAILED
-        # -------------------------
+        # ====================================================
+        # FAILURE
+        # ====================================================
 
         else:
 
@@ -341,25 +467,28 @@ async def get_link_group(client, message):
     except Exception as e:
 
         print(
-            f"TGM Plugin Error: {type(e).__name__}: {e}"
+            f"TGM ERROR: "
+            f"{type(e).__name__}: {e}"
         )
 
         try:
+
             await status.edit_text(
                 "<blockquote>"
-                "<b>❌ Pʀᴏᴄᴇssɪɴɢ Fᴀɪʟᴇᴅ</b>\n\n"
+                "<b>❌ Pʀᴏᴄᴇssɪɴɢ Eʀʀᴏʀ</b>\n\n"
                 f"<b>Eʀʀᴏʀ:</b>\n"
-                f"<code>{str(e)[:1000]}</code>"
+                f"<code>{str(e)[:1500]}</code>"
                 "</blockquote>",
             )
+
         except Exception:
             pass
 
     finally:
 
-        # -------------------------
+        # ====================================================
         # DELETE TEMP FILE
-        # -------------------------
+        # ====================================================
 
         if local_path:
 
@@ -369,15 +498,20 @@ async def get_link_group(client, message):
                     os.remove(local_path)
 
             except Exception as e:
+
                 print(
-                    f"Temporary file cleanup error: {e}"
+                    f"Cleanup Error: {e}"
                 )
 
+
+# ============================================================
+# HELP
+# ============================================================
 
 __MODULE__ = "Tᴇʟᴇɢʀᴀᴘʜ"
 
 __HELP__ = """
-<b>📤 Tᴇʟᴇɢʀᴀᴘʜ / Fɪʟᴇ Uᴘʟᴏᴀᴅᴇʀ</b>
+<b>📤 Fɪʟᴇ Uᴘʟᴏᴀᴅᴇʀ</b>
 
 <blockquote>
 <b>Cᴏᴍᴍᴀɴᴅs:</b>
@@ -387,18 +521,26 @@ __HELP__ = """
 • <code>/telegraph</code>
 • <code>/tl</code>
 
-<b>Hᴏᴡ Tᴏ Uѕᴇ:</b>
+<b>Uѕᴀɢᴇ:</b>
 
-Rᴇᴘʟʏ ᴛᴏ ᴀ ᴘʜᴏᴛᴏ, ᴠɪᴅᴇᴏ,
-ᴅᴏᴄᴜᴍᴇɴᴛ, ᴀᴜᴅɪᴏ,
-ᴀɴɪᴍᴀᴛɪᴏɴ ᴏʀ ᴠᴏɪᴄᴇ
+Rᴇᴘʟʏ ᴛᴏ ᴀɴʏ ᴏғ ᴛʜᴇsᴇ:
+
+• Pʜᴏᴛᴏ
+• Vɪᴅᴇᴏ
+• Dᴏᴄᴜᴍᴇɴᴛ
+• Aᴜᴅɪᴏ
+• Aɴɪᴍᴀᴛɪᴏɴ
+• Vᴏɪᴄᴇ
+• Vɪᴅᴇᴏ Nᴏᴛᴇ
 
 Tʜᴇɴ sᴇɴᴅ:
 
 <code>/tgm</code>
 
-<b>Mᴀxɪᴍᴜᴍ:</b> <code>200 MB</code>
+<b>Uᴘʟᴏᴀᴅ Hᴏsᴛ:</b>
+Gᴏғɪʟᴇ
 
-<b>Hᴏsᴛ:</b> Fɪʟᴇ.ɪᴏ
+<b>Bᴏᴛ Lɪᴍɪᴛ:</b>
+<code>200 MB</code>
 </blockquote>
 """
