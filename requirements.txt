@@ -36,7 +36,7 @@ SafoneAPI
 py-yt-search
 youtube_search
 youtube-search-python
-googlesearch-python
+googlesearch-python==1.3.0
 unidecode
 #git+https://github.com/joetats/youtube_search@master
 #git+https://github.com/alexmercerind/youtube-search-python@main
