@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Union
 
 from pyrogram import Client
+from pyrogram.enums import ChatMemberStatus
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from ntgcalls import TelegramServerError
 from pytgcalls import PyTgCalls
@@ -646,7 +647,7 @@ class Call(PyTgCalls):
                 return
             await self.change_stream(client, update.chat_id)
 
-                @self.one.on_participants_change()
+        @self.one.on_participants_change()
         @self.two.on_participants_change()
         @self.three.on_participants_change()
         @self.four.on_participants_change()
@@ -656,7 +657,6 @@ class Call(PyTgCalls):
                 if not await is_vclogger_on(update.chat_id):
                     return
 
-                # Detect Join / Leave
                 if isinstance(update, JoinedGroupCallParticipant):
                     tag = "#JᴏɪɴᴇᴅVᴄ"
                 elif isinstance(update, LeftGroupCallParticipant):
@@ -665,11 +665,8 @@ class Call(PyTgCalls):
                     return
 
                 user_id = update.participant.user_id
-
-                # Default role
                 role = "👤 MEMBER"
 
-                # Get actual Telegram group role
                 try:
                     member = await app.get_chat_member(
                         update.chat_id,
@@ -678,30 +675,17 @@ class Call(PyTgCalls):
 
                     if member.status == ChatMemberStatus.OWNER:
                         role = "👑 OWNER"
-
                     elif member.status == ChatMemberStatus.ADMINISTRATOR:
                         role = "🛡️ ADMIN"
-
                     elif member.status == ChatMemberStatus.MEMBER:
-                        role = "👤 MEMBER"
-
-                    else:
                         role = "👤 MEMBER"
 
                 except Exception as e:
                     LOGGER(__name__).warning(
-                        f"VC Logger: Could not get role "
-                        f"for user {user_id}: {e}"
+                        f"VC Logger: Could not get role for user {user_id}: {e}"
                     )
 
-                # Get username / mention
-                try:
-                    mention = await vclogger_mention(user_id)
-                except Exception:
-                    mention = (
-                        f"<a href='tg://user?id={user_id}'>"
-                        f"ᴜsᴇʀ</a>"
-                    )
+                mention = await vclogger_mention(user_id)
 
                 text = (
                     f"<blockquote>"
@@ -712,54 +696,38 @@ class Call(PyTgCalls):
                     f"</blockquote>"
                 )
 
-                # VC button
                 keyboard = InlineKeyboardMarkup(
                     [
                         [
                             InlineKeyboardButton(
                                 "🎧 Jᴏɪɴ Tᴏ Vᴄ",
-                                url=(
-                                    f"https://t.me/c/"
-                                    f"{str(update.chat_id)[4:]}"
-                                ),
+                                url=f"https://t.me/c/{str(update.chat_id)[4:]}",
                             )
                         ]
                     ]
                 )
 
-                # Send logger message
-                try:
-                    sent_message = await app.send_message(
-                        chat_id=update.chat_id,
-                        text=text,
-                        reply_markup=keyboard,
-                    )
+                sent_message = await app.send_message(
+                    chat_id=update.chat_id,
+                    text=text,
+                    reply_markup=keyboard,
+                )
 
-                    # Auto delete after 5 seconds
-                    async def delete_after_5_seconds():
-                        await asyncio.sleep(5)
+                async def delete_after_5_seconds():
+                    await asyncio.sleep(5)
+                    try:
+                        await sent_message.delete()
+                    except Exception:
+                        pass
 
-                        try:
-                            await sent_message.delete()
-                        except Exception:
-                            pass
+                asyncio.create_task(delete_after_5_seconds())
+                return sent_message
 
-                    asyncio.create_task(
-                        delete_after_5_seconds()
-                    )
+            except Exception as e:
+                LOGGER(__name__).error(
+                    f"VC participant handler error: {e}"
+                )
+                return None
 
-                    return sent_message
-
-                except Exception as e:
-                    LOGGER(__name__).error(
-                        f"VC Logger send/delete error: {e}"
-                    )
-                    return None
-
-               except Exception as e:
-                   LOGGER(__name__).error(
-                       f"VC participant handler error: {e}"
-                   )
-                   return None
 
 Hotty = Call()
