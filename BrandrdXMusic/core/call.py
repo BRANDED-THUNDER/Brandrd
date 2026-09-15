@@ -156,19 +156,19 @@ class Call(PyTgCalls):
         mention = f'<a href="tg://user?id={int(user.id)}">{full_name}</a>'
 
         if event == "joined":
-            title = "🎤 Vᴏɪᴄᴇ Cʜᴀᴛ Jᴏɪɴᴇᴅ"
-            status = "🟢 Sᴛᴀᴛᴜs: Jᴏɪɴᴇᴅ"
+            text = (
+                "<b>#JoinVc</b>\n\n"
+                f"<b>👤 User:</b> {username}\n"
+                f"<b>🆔 UserID:</b> <code>{int(user.id)}</code>\n"
+                "<b>🔐 Auth:</b> Member"
+            )
         else:
-            title = "👋 Vᴏɪᴄᴇ Cʜᴀᴛ Lᴇғᴛ"
-            status = "🔴 Sᴛᴀᴛᴜs: Lᴇғᴛ / Rᴇᴍᴏᴠᴇᴅ"
-
-        text = (
-            f"<b><blockquote>{title}\n\n"
-            f"👤 Uѕᴇʀ: {mention}\n"
-            f"🏷️ Uѕᴇʀɴᴀᴍᴇ: {username}\n"
-            f"🆔 Tᴇʟᴇɢʀᴀᴍ ID: <code>{int(user.id)}</code>\n\n"
-            f"{status}</blockquote></b>"
-        )
+            text = (
+                "<b>#LeftVc</b>\n\n"
+                f"<b>👤 User:</b> {username}\n"
+                f"<b>🆔 UserID:</b> <code>{int(user.id)}</code>\n"
+                "<b>🔐 Auth:</b> Member"
+            )
 
         try:
             await app.send_message(
