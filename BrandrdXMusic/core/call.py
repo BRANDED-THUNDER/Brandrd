@@ -2397,38 +2397,48 @@ async def _stop_vc_monitor(
     # START
     # ========================================================
 
-    async def start(
-        self,
-    ):
+    class Call:
 
-        LOGGER(__name__).info(
-            "Starting PyTgCalls Client...\n"
-        )
+    def __init__(self):
+        ...
+        self.one = PyTgCalls(...)
+        self.two = PyTgCalls(...)
+        self.three = PyTgCalls(...)
+        self.four = PyTgCalls(...)
+        self.five = PyTgCalls(...)
 
-        if config.STRING1:
+    async def _get_vc_participants(self, chat_id, assistant):
+        ...
 
-            await self.one.start()
+    def _register_vc_participant_handler(self, chat_id, assistant):
+        ...
 
-        if config.STRING2:
+    async def _vc_monitor_loop(self, chat_id, assistant):
+        ...
 
-            await self.two.start()
+    async def _start_vc_monitor(self, chat_id, assistant):
+        ...
 
-        if config.STRING3:
+    async def _stop_vc_monitor(self, chat_id):
+        ...
 
-            await self.three.start()
+    async def pause_stream(self, chat_id):
+        ...
 
-        if config.STRING4:
+    async def mute_stream(self, chat_id):
+        ...
 
-            await self.four.start()
+    async def get_participant(self, chat_id):
+        ...
 
-        if config.STRING5:
+    async def join_call(self, ...):
+        ...
 
-            await self.five.start()
-
-        LOGGER(__name__).info(
-            "PyTgCalls Clients Started Successfully"
-        )
-
+    async def start(self):
+        ...
+        
+    async def decorators(self):
+        ...
     # ========================================================
     # DECORATORS
     # ========================================================
